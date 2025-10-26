@@ -46,7 +46,9 @@ __pycache__/
 # Data files (configure based on your needs)
 *.csv
 *.xlsx
+*.xlsm
 tables_export.xlsx
+01-2025/
 
 # Electron build output
 /dist
@@ -58,6 +60,8 @@ tables_export.xlsx
 distribution/*.exe
 distribution/*.zip
 Modelling_Mate_Installation.zip
+Modelling_Mate_Installation/
+*.exe
 
 # Python backend build artifacts
 python-backend/build/
