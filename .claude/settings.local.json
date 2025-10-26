@@ -60,7 +60,9 @@
       "Bash(xargs:*)",
       "Bash(git rm:*)",
       "Bash(git add:*)",
-      "Bash(git commit -m \"$(cat <<''EOF''\nRemove large files and add proper .gitignore rules\n\n- Remove Modelling_Mate_Installation/ folder (contains 223MB .exe)\n- Remove 01-2025/ folder (legacy R scripts and large Excel files)\n- Update .gitignore to exclude:\n  - Installation files (*.exe, Modelling_Mate_Installation/)\n  - Excel macro files (*.xlsm)\n  - Legacy data folder (01-2025/)\n\nThis fixes the GitHub 100MB file size restriction error.\n\nGenerated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+      "Bash(git commit -m \"$(cat <<''EOF''\nRemove large files and add proper .gitignore rules\n\n- Remove Modelling_Mate_Installation/ folder (contains 223MB .exe)\n- Remove 01-2025/ folder (legacy R scripts and large Excel files)\n- Update .gitignore to exclude:\n  - Installation files (*.exe, Modelling_Mate_Installation/)\n  - Excel macro files (*.xlsm)\n  - Legacy data folder (01-2025/)\n\nThis fixes the GitHub 100MB file size restriction error.\n\nGenerated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git reflog expire:*)",
+      "Bash(git gc:*)"
     ],
     "deny": [],
     "ask": []
