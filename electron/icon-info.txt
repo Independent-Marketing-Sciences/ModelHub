@@ -1,0 +1,31 @@
+ICON PLACEHOLDER
+
+To create proper application icons:
+
+1. Create a 512x512 PNG icon for your app
+   - Use a design tool (Figma, Photoshop, GIMP, etc.)
+   - Make it represent your brand/application
+   - High contrast works best for taskbar
+
+2. Convert to platform-specific formats:
+
+   WINDOWS (.ico):
+   - Use online converter: https://icoconvert.com
+   - Or use electron-icon-builder (npm install -g electron-icon-builder)
+   - Place as: electron/icon.ico
+
+   MAC (.icns):
+   - Use png2icns tool on Mac
+   - Or electron-icon-builder
+   - Place as: electron/icon.icns
+
+   LINUX (.png):
+   - Use the 512x512 PNG directly
+   - Place as: electron/icon.png
+
+3. Quick solution with electron-icon-builder:
+
+   npm install -g electron-icon-builder
+   electron-icon-builder --input=./source-icon.png --output=./electron
+
+For now, the app will use default Electron icon until you add custom ones.

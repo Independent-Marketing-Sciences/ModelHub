@@ -1,0 +1,36 @@
+appId: com.imsciences.modellingmate
+productName: Modelling Mate
+
+directories:
+  output: dist
+
+# Configure where updates are published
+publish:
+  provider: generic
+  url: "file://\\\\your-company-server\\modelling-mate-updates"
+  # OR use a local network path like:
+  # url: "\\\\server\\shared\\modelling-mate-updates"
+
+files:
+  - electron/**/*
+  - out/**/*
+  - backend/**/*
+  - "!backend/build/**/*"
+  - "!backend/dist/**/*"
+  - "!backend/**/__pycache__/**/*"
+  - package.json
+
+# Unpack backend from ASAR so Python can access the files
+asarUnpack:
+  - backend/**/*
+
+win:
+  target:
+    # NSIS installer for easy installation
+    - target: nsis
+      arch:
+        - x64
+  icon: IMS_SiteIcon.png
+
+# CRITICAL: Completely disable all signing
+forceCodeSigning: false
