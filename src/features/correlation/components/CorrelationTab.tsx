@@ -45,7 +45,7 @@ export function CorrelationTab() {
       if (!isBackendAvailable) {
         throw new Error(
           "Python backend is not running. Please start the backend server:\n" +
-          "1. Open terminal in python-backend folder\n" +
+          "1. Open terminal in backend folder\n" +
           "2. Run: python main.py\n" +
           "The backend should run on http://localhost:8000"
         );

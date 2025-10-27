@@ -11,7 +11,7 @@ Built with Electron, Next.js, TypeScript, and Python (FastAPI + Prophet).
 ```bash
 # Install dependencies
 npm install
-cd python-backend && pip install -r requirements.txt && cd ..
+cd backend && pip install -r requirements.txt && cd ..
 
 # Run development mode
 npm run dev              # Terminal 1: Next.js
@@ -56,7 +56,7 @@ Modelling_Mate/
 ├── components/       # React components
 ├── electron/         # Electron main process
 ├── lib/              # Utilities & state
-├── python-backend/   # FastAPI backend
+├── backend/          # FastAPI backend
 ├── scripts/          # Build scripts
 └── docs/             # Documentation
 ```

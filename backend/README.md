@@ -7,7 +7,7 @@ FastAPI backend that provides Prophet forecasting and advanced statistical opera
 ### 1. Install Python Dependencies
 
 ```bash
-cd python-backend
+cd backend
 pip install -r requirements.txt
 ```
 

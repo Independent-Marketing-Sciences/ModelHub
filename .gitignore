@@ -64,9 +64,9 @@ Modelling_Mate_Installation/
 *.exe
 
 # Python backend build artifacts
-python-backend/build/
-python-backend/dist/
-python-backend/**/*.spec
+backend/build/
+backend/dist/
+backend/**/*.spec
 python-dist/
 
 # Temporary/legacy files
