@@ -71,3 +71,10 @@ python-dist/
 
 # Temporary/legacy files
 server.js
+*.backup
+*.log
+deployment-log.txt
+ModellingMate_Install.log
+
+# Updates folder (synced via OneDrive)
+ModelHub-Updates/

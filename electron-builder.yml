@@ -1,32 +1,42 @@
 appId: com.imsciences.modellingmate
 productName: Modelling Mate
+copyright: Copyright © 2025 Independent Marketing Sciences
 
 directories:
   output: dist
 
 # Configure where updates are published
+# Option 1: GitHub Releases (recommended for v1.0.0+)
+# Uncomment this for GitHub releases:
+# publish:
+#   provider: github
+#   owner: YOUR_GITHUB_USERNAME
+#   repo: ModelHub
+#   private: false
+
+# Option 2: Local/OneDrive distribution (current setup)
+# Keep this for internal distribution or as backup:
 publish:
   provider: generic
-  url: "file://\\\\your-company-server\\modelling-mate-updates"
-  # OR use a local network path like:
-  # url: "\\\\server\\shared\\modelling-mate-updates"
+  url: "file://C:/Users/CameronRoberts/OneDrive - im-sciences.com/MasterDrive/Dev/04 - Python Modelling Toolkit/ModelHub-Updates"
 
 files:
   - electron/**/*
   - out/**/*
   - backend/**/*
+  - scripts/**/*
   - "!backend/build/**/*"
   - "!backend/dist/**/*"
   - "!backend/**/__pycache__/**/*"
   - package.json
 
-# Unpack backend from ASAR so Python can access the files
+# Unpack backend and scripts from ASAR so Python can access the files
 asarUnpack:
   - backend/**/*
+  - scripts/**/*
 
 win:
   target:
-    # NSIS installer for easy installation
     - target: nsis
       arch:
         - x64

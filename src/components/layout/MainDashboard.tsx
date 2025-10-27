@@ -41,9 +41,9 @@ export function MainDashboard({ onBackToHome }: MainDashboardProps) {
           setIsLoading(true);
           setError(null);
 
-          // Read file using Node.js fs (available through Electron)
-          const fs = require('fs');
-          const buffer = fs.readFileSync(filePath);
+          // Read file using Electron IPC (not direct fs access)
+          const base64Data = await window.electron.readFile(filePath);
+          const buffer = Buffer.from(base64Data, 'base64');
           const fileExtension = filePath.split('.').pop()?.toLowerCase();
 
           if (fileExtension === 'csv') {

@@ -1,7 +1,14 @@
 {
   "name": "modelling-mate",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "author": "Independent Marketing Sciences <info@im-sciences.com>",
+  "description": "Professional analytics and modeling platform",
+  "homepage": "https://im-sciences.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR_USERNAME/ModelHub.git"
+  },
   "main": "electron/main.js",
   "scripts": {
     "dev": "concurrently \"next dev\" \"npm run python:dev\"",

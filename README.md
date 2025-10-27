@@ -45,10 +45,8 @@ npm run electron:build:win
 
 ## Documentation
 
-- **[User Installation Guide](docs/user-guides/INSTALLATION_GUIDE.md)** - For end users
-- **[Developer Guide](docs/development/GETTING_STARTED.md)** - Set up development environment
-- **[Deployment Guide](docs/development/DEPLOYMENT.md)** - Build and deploy updates
-- **[Troubleshooting](docs/development/TROUBLESHOOTING.md)** - Common issues and fixes
+- **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Installation, building, auto-updates, and troubleshooting
+- **[scripts/README.txt](scripts/README.txt)** - End-user installation help
 
 ## Project Structure
 

@@ -62,7 +62,11 @@
       "Bash(git add:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nRemove large files and add proper .gitignore rules\n\n- Remove Modelling_Mate_Installation/ folder (contains 223MB .exe)\n- Remove 01-2025/ folder (legacy R scripts and large Excel files)\n- Update .gitignore to exclude:\n  - Installation files (*.exe, Modelling_Mate_Installation/)\n  - Excel macro files (*.xlsm)\n  - Legacy data folder (01-2025/)\n\nThis fixes the GitHub 100MB file size restriction error.\n\nGenerated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git reflog expire:*)",
-      "Bash(git gc:*)"
+      "Bash(git gc:*)",
+      "Bash(del \"c:\\Users\\CameronRoberts\\OneDrive - im-sciences.com\\Documents\\ModelHub\\AUTO-UPDATE-GUIDE.md\")",
+      "Bash(timeout /t 30)",
+      "Bash(cmd //c create-install-folder.bat)",
+      "Bash(copy \"dist\\Modelling Mate Setup 0.1.1.exe\" \"C:\\Users\\CameronRoberts\\OneDrive - im-sciences.com\\MasterDrive\\Dev\\04 - Python Modelling Toolkit\\ModelHub-Updates\"\" && copy \"distlatest.yml\" \"C:UsersCameronRobertsOneDrive - im-sciences.comMasterDriveDev04 - Python Modelling ToolkitModelHub-Updates\"\")"
     ],
     "deny": [],
     "ask": []

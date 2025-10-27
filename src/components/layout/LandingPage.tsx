@@ -101,16 +101,6 @@ export function LandingPage({ onDataLoaded }: LandingPageProps) {
       <div className="flex-1 flex items-center justify-center px-4 -mt-6">
         <div className="mx-auto w-full max-w-[550px]">
           <div className="flex w-full flex-col justify-center space-y-6">
-            {/* Header */}
-            <div className="flex flex-col space-y-4 text-center">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Modelling Mate
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Media Analytics & Marketing Mix Modeling
-              </p>
-            </div>
-
           {/* Main Card */}
           <Card>
             <CardHeader className="space-y-1">

@@ -164,4 +164,91 @@
   .dark .gradient-text {
     @apply from-blue-400 to-purple-400;
   }
+
+  /* Dark mode input fix - make inputs visible with contrasting background */
+  .dark input[type="text"],
+  .dark input[type="search"],
+  .dark input[type="email"],
+  .dark input[type="password"],
+  .dark input[type="number"] {
+    background-color: hsl(215, 20%, 20%) !important;
+    color: hsl(0, 0%, 100%) !important;
+    border-color: hsl(215, 25%, 35%) !important;
+  }
+
+  .dark input[type="text"]::placeholder,
+  .dark input[type="search"]::placeholder,
+  .dark input[type="email"]::placeholder,
+  .dark input[type="password"]::placeholder,
+  .dark input[type="number"]::placeholder {
+    color: hsl(214, 17%, 62%) !important;
+  }
+
+  /* Fix MUI DatePicker in dark mode - ensure text is white */
+  .dark .MuiInputBase-root {
+    background-color: hsl(215, 20%, 20%) !important;
+  }
+
+  .dark .MuiInputBase-input {
+    color: hsl(0, 0%, 100%) !important;
+  }
+
+  .dark .MuiInputBase-input::placeholder {
+    color: hsl(0, 0%, 100%) !important;
+    opacity: 0.7 !important;
+  }
+
+  .dark .MuiInputBase-input::-webkit-input-placeholder {
+    color: hsl(0, 0%, 100%) !important;
+    opacity: 0.7 !important;
+  }
+
+  .dark .MuiInputBase-input::-moz-placeholder {
+    color: hsl(0, 0%, 100%) !important;
+    opacity: 0.7 !important;
+  }
+
+  .dark .MuiInputLabel-root {
+    color: hsl(214, 17%, 62%) !important;
+  }
+
+  .dark .MuiInputLabel-root.Mui-focused {
+    color: hsl(218, 100%, 62%) !important;
+  }
+
+  .dark .MuiOutlinedInput-notchedOutline {
+    border-color: hsl(215, 25%, 35%) !important;
+  }
+
+  /* Fix MUI DatePicker placeholder specifically */
+  .dark .MuiTextField-root input::placeholder {
+    color: hsl(0, 0%, 100%) !important;
+    opacity: 0.7 !important;
+  }
+
+  /* Target the specific placeholder for date pickers */
+  .dark input[placeholder*="mm"],
+  .dark input[placeholder*="dd"],
+  .dark input[placeholder*="yyyy"] {
+    color: hsl(0, 0%, 100%) !important;
+  }
+
+  /* Fix white box around inputs - make card backgrounds match main background in dark mode */
+  .dark .bg-card,
+  .dark [class*="bg-card"],
+  .dark div[class*="bg-card"],
+  .dark section[class*="bg-card"] {
+    background-color: hsl(217, 32%, 15%) !important;
+  }
+
+  /* Force remove any remaining white/light backgrounds from filter containers */
+  .dark *[class*="filter"],
+  .dark *[class*="search"],
+  .dark div:has(> input) {
+    background-color: transparent !important;
+  }
+
+  .dark div:has(> input):not([class*="MuiInput"]) {
+    background-color: transparent !important;
+  }
 }

@@ -9,9 +9,46 @@ const isDev = process.env.NODE_ENV === 'development';
 const port = process.env.PORT || 3000;
 const pythonPort = 8000;
 
+// Function to find OneDrive path with shared folder structure
+function getUpdateServerPath() {
+  const fs = require('fs');
+  const os = require('os');
+
+  // The shared folder path relative to OneDrive root
+  const sharedPath = 'MasterDrive\\Dev\\04 - Python Modelling Toolkit\\ModelHub-Updates';
+
+  // Try common OneDrive locations
+  const userProfile = os.homedir();
+  const possiblePaths = [
+    path.join(userProfile, 'OneDrive - im-sciences.com', sharedPath),
+    path.join(userProfile, 'OneDrive', sharedPath),
+    path.join(userProfile, 'OneDrive for Business', sharedPath),
+  ];
+
+  // Find first path that exists
+  for (const testPath of possiblePaths) {
+    if (fs.existsSync(testPath)) {
+      console.log('Found update server at:', testPath);
+      return testPath;
+    }
+  }
+
+  // Fallback to default
+  const fallbackPath = possiblePaths[0];
+  console.warn('Update server path not found, using fallback:', fallbackPath);
+  return fallbackPath;
+}
+
 // Configure auto-updater
 autoUpdater.autoDownload = false; // Don't auto-download, ask user first
 autoUpdater.autoInstallOnAppQuit = true;
+
+// Set update feed URL dynamically based on user's OneDrive location
+const updateServerPath = getUpdateServerPath();
+autoUpdater.setFeedURL({
+  provider: 'generic',
+  url: `file:///${updateServerPath.replace(/\\/g, '/')}`
+});
 
 // Register custom protocol before app is ready
 if (!isDev) {
@@ -42,7 +79,7 @@ function createWindow() {
       enableRemoteModule: false,
       preload: path.join(__dirname, 'preload.js'),
     },
-    title: 'Modelling Mate - Media Analytics & MMM',
+    title: 'Modelling Mate',
     backgroundColor: '#f8fafc',
     show: false, // Don't show until ready
   });
@@ -72,15 +109,31 @@ function createWindow() {
   });
 }
 
+function checkPythonAvailable() {
+  // Check if Python is available on the system
+  return new Promise((resolve) => {
+    const pythonExe = process.platform === 'win32' ? 'python' : 'python3';
+    const checkPython = spawn(pythonExe, ['--version'], { shell: true });
+
+    checkPython.on('error', () => resolve(false));
+    checkPython.on('close', (code) => resolve(code === 0));
+
+    // Timeout after 5 seconds
+    setTimeout(() => resolve(false), 5000);
+  });
+}
+
 function startPythonBackend() {
   // Start the Python FastAPI backend
   // In development: __dirname is /electron
   // In production: backend is unpacked to /resources/app.asar.unpacked/backend/src
   let pythonDir;
+  let scriptsDir;
 
   if (isDev) {
     // Development: backend is next to electron folder
     pythonDir = path.join(__dirname, '../backend/src');
+    scriptsDir = path.join(__dirname, '../scripts');
   } else {
     // Production: Use ASAR unpacked directory
     // When we use asarUnpack in electron-builder.yml, files are extracted to app.asar.unpacked
@@ -88,27 +141,54 @@ function startPythonBackend() {
 
     // Try unpacked location first (this is where asarUnpack puts files)
     pythonDir = path.join(appPath + '.unpacked', 'backend/src');
+    scriptsDir = path.join(appPath + '.unpacked', 'scripts');
 
     // Log paths for debugging
     console.log('App path:', appPath);
     console.log('Python dir (unpacked):', pythonDir);
+    console.log('Scripts dir (unpacked):', scriptsDir);
   }
 
-  // Determine Python executable path
-  const pythonExe = process.platform === 'win32' ? 'python' : 'python3';
+  // Check if Python script exists first
   const pythonScript = path.join(pythonDir, 'main.py');
+  const fs = require('fs');
+
+  if (!fs.existsSync(pythonScript)) {
+    console.error('Python script not found at:', pythonScript);
+    console.error('Python dir:', pythonDir);
+    console.error('Directory contents:', fs.existsSync(pythonDir) ? fs.readdirSync(pythonDir) : 'Directory does not exist');
+
+    if (mainWindow) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'error',
+        title: 'Installation Error',
+        message: 'Python backend files not found',
+        detail: `The application files are incomplete or corrupted.\n\nExpected location: ${pythonScript}\n\nPlease reinstall the application.`,
+        buttons: ['OK']
+      });
+    }
+    return Promise.resolve();
+  }
+
+  // Determine Python executable path - try multiple options
+  let pythonExe = 'python';
+  if (process.platform !== 'win32') {
+    pythonExe = 'python3';
+  }
 
   console.log('Starting Python backend...');
   console.log('Python executable:', pythonExe);
   console.log('Python script:', pythonScript);
   console.log('Working directory:', pythonDir);
-  console.log('Python script exists:', require('fs').existsSync(pythonScript));
 
   // Always run Python script from source
-  pythonBackend = spawn(pythonExe, [pythonScript], {
+  // Use 'cmd.exe' explicitly on Windows to avoid ENOENT error
+  const spawnOptions = {
     cwd: pythonDir,
-    shell: true,
-  });
+    shell: process.platform === 'win32' ? 'cmd.exe' : true,
+  };
+
+  pythonBackend = spawn(pythonExe, [pythonScript], spawnOptions);
 
   pythonBackend.stdout.on('data', (data) => {
     console.log(`Python Backend: ${data}`);
@@ -121,16 +201,31 @@ function startPythonBackend() {
   pythonBackend.on('error', (error) => {
     console.error('Failed to start Python backend:', error);
 
-    // Show error dialog to user
+    // Show error dialog to user with option to run installer
     if (mainWindow) {
-      dialog.showErrorBox(
-        'Python Backend Error',
-        'Failed to start the Python backend.\n\n' +
-        'Please make sure:\n' +
-        '1. Python is installed\n' +
-        '2. Required packages are installed (run Install-Dependencies.bat)\n\n' +
-        `Error: ${error.message}`
-      );
+      const installScriptPath = path.join(scriptsDir, 'Install-Dependencies.bat');
+      const scriptExists = require('fs').existsSync(installScriptPath);
+
+      dialog.showMessageBox(mainWindow, {
+        type: 'error',
+        title: 'Python Backend Error',
+        message: 'Failed to start the Python backend.',
+        detail:
+          'Please make sure:\n' +
+          '1. Python 3.9-3.11 is installed\n' +
+          '2. Python is added to your PATH\n' +
+          '3. Required packages are installed\n\n' +
+          `Error: ${error.message}`,
+        buttons: scriptExists ? ['Run Dependency Installer', 'OK'] : ['OK'],
+        defaultId: 0,
+        cancelId: scriptExists ? 1 : 0,
+      }).then((result) => {
+        if (result.response === 0 && scriptExists) {
+          // User clicked "Run Dependency Installer"
+          const { shell } = require('electron');
+          shell.openPath(installScriptPath);
+        }
+      });
     }
   });
 
@@ -160,10 +255,38 @@ function startPythonBackend() {
     // Timeout after 30 seconds
     setTimeout(() => {
       clearInterval(checkBackend);
-      console.warn('Python backend did not start in time, continuing anyway...');
+      console.warn('Python backend did not start in time');
 
-      // Silently continue without showing popup
-      resolve();
+      // Show error dialog with helpful instructions
+      if (mainWindow) {
+        const installScriptPath = path.join(scriptsDir, 'Install-Dependencies.bat');
+        const scriptExists = require('fs').existsSync(installScriptPath);
+
+        dialog.showMessageBox(mainWindow, {
+          type: 'warning',
+          title: 'Python Backend Not Running',
+          message: 'The Python backend failed to start.',
+          detail:
+            'Modelling Mate requires Python 3.9-3.11 and dependencies to be installed.\n\n' +
+            'Please ensure:\n' +
+            '1. Python 3.9-3.11 is installed\n' +
+            '2. Python is added to your PATH\n' +
+            '3. Required packages are installed\n\n' +
+            (scriptExists ? 'Click "Install Dependencies" to run the automated installer.' : 'Please reinstall the application.'),
+          buttons: scriptExists ? ['Install Dependencies', 'Continue Anyway'] : ['OK'],
+          defaultId: 0,
+          cancelId: scriptExists ? 1 : 0,
+        }).then((result) => {
+          if (result.response === 0 && scriptExists) {
+            // User clicked "Install Dependencies"
+            const { shell } = require('electron');
+            shell.openPath(installScriptPath);
+          }
+          resolve();
+        });
+      } else {
+        resolve();
+      }
     }, 30000);
   });
 }
@@ -212,6 +335,41 @@ function createMenu() {
         { role: 'zoomOut' },
         { type: 'separator' },
         { role: 'togglefullscreen' },
+      ],
+    },
+    {
+      label: 'Tools',
+      submenu: [
+        {
+          label: 'Install Python Dependencies',
+          click: () => {
+            const scriptsDir = isDev
+              ? path.join(__dirname, '../scripts')
+              : path.join(app.getAppPath() + '.unpacked', 'scripts');
+            const installScriptPath = path.join(scriptsDir, 'Install-Dependencies.bat');
+
+            if (require('fs').existsSync(installScriptPath)) {
+              const { shell } = require('electron');
+              shell.openPath(installScriptPath);
+            } else {
+              dialog.showMessageBox(mainWindow, {
+                type: 'error',
+                title: 'Script Not Found',
+                message: 'Could not find Install-Dependencies.bat',
+                detail: `Expected location: ${installScriptPath}`,
+              });
+            }
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'Open Installation Folder',
+          click: () => {
+            const { shell } = require('electron');
+            const installDir = isDev ? __dirname : app.getAppPath();
+            shell.openPath(path.dirname(installDir));
+          },
+        },
       ],
     },
     {

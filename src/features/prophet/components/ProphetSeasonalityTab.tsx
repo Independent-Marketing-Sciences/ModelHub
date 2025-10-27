@@ -345,21 +345,24 @@ export function ProphetSeasonalityTab() {
                           wrapperClassName="dark:[&_.recharts-tooltip-wrapper]:!bg-gray-800 dark:[&_.recharts-default-tooltip]:!bg-gray-800 dark:[&_.recharts-default-tooltip]:!border-gray-700 dark:[&_.recharts-tooltip-label]:!text-white dark:[&_.recharts-tooltip-item]:!text-gray-300"
                         />
                         <Legend wrapperStyle={{ color: 'inherit' }} className="text-gray-700 dark:text-gray-300" />
-                        {/* Confidence interval band */}
-                        <Area
+                        {/* Upper confidence interval line */}
+                        <Line
                           type="monotone"
                           dataKey="upper"
-                          stroke="none"
-                          fill="#93c5fd"
-                          fillOpacity={0.3}
+                          stroke="#93c5fd"
+                          strokeWidth={2}
+                          strokeDasharray="5 5"
+                          dot={false}
                           name="Upper CI"
                         />
-                        <Area
+                        {/* Lower confidence interval line */}
+                        <Line
                           type="monotone"
                           dataKey="lower"
-                          stroke="none"
-                          fill="#ffffff"
-                          fillOpacity={1}
+                          stroke="#93c5fd"
+                          strokeWidth={2}
+                          strokeDasharray="5 5"
+                          dot={false}
                           name="Lower CI"
                         />
                         {/* Main forecast line */}

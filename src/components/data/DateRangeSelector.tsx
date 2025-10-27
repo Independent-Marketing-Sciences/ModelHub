@@ -142,20 +142,54 @@ export function DateRangeSelector() {
           onChange={(newValue) => setStartDate(newValue)}
           minDate={minDate}
           maxDate={maxDate}
+          format="DD/MM/YYYY"
           slotProps={{
             textField: {
               size: 'small',
               fullWidth: true,
+              InputProps: {
+                style: {
+                  color: '#ffffff',
+                  backgroundColor: 'hsl(215, 20%, 20%)'
+                }
+              },
+              inputProps: {
+                style: {
+                  color: '#ffffff',
+                  WebkitTextFillColor: '#ffffff'
+                }
+              },
               sx: {
                 '& .MuiInputBase-root': {
-                  color: 'var(--foreground)',
-                  backgroundColor: 'var(--background)',
+                  color: '#ffffff !important',
+                  backgroundColor: 'hsl(215, 20%, 20%)',
+                },
+                '& .MuiInputBase-input': {
+                  color: '#ffffff !important',
+                  WebkitTextFillColor: '#ffffff !important',
+                  '&::placeholder': {
+                    color: '#ffffff !important',
+                    opacity: '0.7 !important',
+                    WebkitTextFillColor: '#ffffff !important',
+                  },
+                  '&::-webkit-input-placeholder': {
+                    color: '#ffffff !important',
+                    opacity: '0.7 !important',
+                    WebkitTextFillColor: '#ffffff !important',
+                  },
+                  '&::-moz-placeholder': {
+                    color: '#ffffff !important',
+                    opacity: '0.7 !important',
+                  },
                 },
                 '& .MuiInputLabel-root': {
-                  color: 'var(--muted-foreground)',
+                  color: 'hsl(214, 17%, 62%)',
                 },
                 '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'var(--border)',
+                  borderColor: 'hsl(215, 25%, 35%)',
+                },
+                '& .MuiSvgIcon-root': {
+                  color: '#ffffff',
                 }
               }
             }
@@ -168,20 +202,54 @@ export function DateRangeSelector() {
           onChange={(newValue) => setEndDate(newValue)}
           minDate={startDate || minDate}
           maxDate={maxDate}
+          format="DD/MM/YYYY"
           slotProps={{
             textField: {
               size: 'small',
               fullWidth: true,
+              InputProps: {
+                style: {
+                  color: '#ffffff',
+                  backgroundColor: 'hsl(215, 20%, 20%)'
+                }
+              },
+              inputProps: {
+                style: {
+                  color: '#ffffff',
+                  WebkitTextFillColor: '#ffffff'
+                }
+              },
               sx: {
                 '& .MuiInputBase-root': {
-                  color: 'var(--foreground)',
-                  backgroundColor: 'var(--background)',
+                  color: '#ffffff !important',
+                  backgroundColor: 'hsl(215, 20%, 20%)',
+                },
+                '& .MuiInputBase-input': {
+                  color: '#ffffff !important',
+                  WebkitTextFillColor: '#ffffff !important',
+                  '&::placeholder': {
+                    color: '#ffffff !important',
+                    opacity: '0.7 !important',
+                    WebkitTextFillColor: '#ffffff !important',
+                  },
+                  '&::-webkit-input-placeholder': {
+                    color: '#ffffff !important',
+                    opacity: '0.7 !important',
+                    WebkitTextFillColor: '#ffffff !important',
+                  },
+                  '&::-moz-placeholder': {
+                    color: '#ffffff !important',
+                    opacity: '0.7 !important',
+                  },
                 },
                 '& .MuiInputLabel-root': {
-                  color: 'var(--muted-foreground)',
+                  color: 'hsl(214, 17%, 62%)',
                 },
                 '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'var(--border)',
+                  borderColor: 'hsl(215, 25%, 35%)',
+                },
+                '& .MuiSvgIcon-root': {
+                  color: '#ffffff',
                 }
               }
             }
