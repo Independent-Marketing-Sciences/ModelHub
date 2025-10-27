@@ -6,19 +6,19 @@ directories:
   output: dist
 
 # Configure where updates are published
-# Option 1: GitHub Releases (recommended for v1.0.0+)
-# Uncomment this for GitHub releases:
-# publish:
-#   provider: github
-#   owner: YOUR_GITHUB_USERNAME
-#   repo: ModelHub
-#   private: false
-
-# Option 2: Local/OneDrive distribution (current setup)
-# Keep this for internal distribution or as backup:
+# GitHub Releases (v1.0.0+)
 publish:
-  provider: generic
-  url: "file://C:/Users/CameronRoberts/OneDrive - im-sciences.com/MasterDrive/Dev/04 - Python Modelling Toolkit/ModelHub-Updates"
+  provider: github
+  owner: Independent-Marketing-Sciences
+  repo: ModelHub
+  private: false
+  releaseType: release
+
+# Backup: Local/OneDrive distribution
+# Uncomment this and comment out GitHub publish above to use OneDrive:
+# publish:
+#   provider: generic
+#   url: "file://C:/Users/CameronRoberts/OneDrive - im-sciences.com/MasterDrive/Dev/04 - Python Modelling Toolkit/ModelHub-Updates"
 
 files:
   - electron/**/*

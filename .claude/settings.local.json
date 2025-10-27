@@ -66,7 +66,10 @@
       "Bash(del \"c:\\Users\\CameronRoberts\\OneDrive - im-sciences.com\\Documents\\ModelHub\\AUTO-UPDATE-GUIDE.md\")",
       "Bash(timeout /t 30)",
       "Bash(cmd //c create-install-folder.bat)",
-      "Bash(copy \"dist\\Modelling Mate Setup 0.1.1.exe\" \"C:\\Users\\CameronRoberts\\OneDrive - im-sciences.com\\MasterDrive\\Dev\\04 - Python Modelling Toolkit\\ModelHub-Updates\"\" && copy \"distlatest.yml\" \"C:UsersCameronRobertsOneDrive - im-sciences.comMasterDriveDev04 - Python Modelling ToolkitModelHub-Updates\"\")"
+      "Bash(copy \"dist\\Modelling Mate Setup 0.1.1.exe\" \"C:\\Users\\CameronRoberts\\OneDrive - im-sciences.com\\MasterDrive\\Dev\\04 - Python Modelling Toolkit\\ModelHub-Updates\"\" && copy \"distlatest.yml\" \"C:UsersCameronRobertsOneDrive - im-sciences.comMasterDriveDev04 - Python Modelling ToolkitModelHub-Updates\"\")",
+      "Bash(if exist .next rmdir /s /q .next)",
+      "Bash(if exist out rmdir /s /q out)",
+      "Bash(if exist dist rmdir /s /q dist)"
     ],
     "deny": [],
     "ask": []

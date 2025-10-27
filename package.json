@@ -7,7 +7,7 @@
   "homepage": "https://im-sciences.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOUR_USERNAME/ModelHub.git"
+    "url": "https://github.com/Independent-Marketing-Sciences/ModelHub.git"
   },
   "main": "electron/main.js",
   "scripts": {
@@ -21,6 +21,7 @@
     "electron:dev": "concurrently \"npm run dev:frontend\" \"wait-on http://localhost:3000 && electron .\"",
     "electron:build": "next build && electron-builder",
     "electron:build:win": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& next build && electron-builder --win --config electron-builder.yml",
+    "electron:publish:win": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& next build && electron-builder --win --config electron-builder.yml --publish always",
     "electron:build:mac": "next build && electron-builder --mac",
     "electron:build:linux": "next build && electron-builder --linux"
   },
