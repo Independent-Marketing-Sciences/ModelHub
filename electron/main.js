@@ -9,46 +9,13 @@ const isDev = process.env.NODE_ENV === 'development';
 const port = process.env.PORT || 3000;
 const pythonPort = 8000;
 
-// Function to find OneDrive path with shared folder structure
-function getUpdateServerPath() {
-  const fs = require('fs');
-  const os = require('os');
-
-  // The shared folder path relative to OneDrive root
-  const sharedPath = 'MasterDrive\\Dev\\04 - Python Modelling Toolkit\\ModelHub-Updates';
-
-  // Try common OneDrive locations
-  const userProfile = os.homedir();
-  const possiblePaths = [
-    path.join(userProfile, 'OneDrive - im-sciences.com', sharedPath),
-    path.join(userProfile, 'OneDrive', sharedPath),
-    path.join(userProfile, 'OneDrive for Business', sharedPath),
-  ];
-
-  // Find first path that exists
-  for (const testPath of possiblePaths) {
-    if (fs.existsSync(testPath)) {
-      console.log('Found update server at:', testPath);
-      return testPath;
-    }
-  }
-
-  // Fallback to default
-  const fallbackPath = possiblePaths[0];
-  console.warn('Update server path not found, using fallback:', fallbackPath);
-  return fallbackPath;
-}
-
-// Configure auto-updater
+// Configure auto-updater to use GitHub Releases
 autoUpdater.autoDownload = false; // Don't auto-download, ask user first
 autoUpdater.autoInstallOnAppQuit = true;
 
-// Set update feed URL dynamically based on user's OneDrive location
-const updateServerPath = getUpdateServerPath();
-autoUpdater.setFeedURL({
-  provider: 'generic',
-  url: `file:///${updateServerPath.replace(/\\/g, '/')}`
-});
+// Use GitHub Releases for updates (configured in electron-builder.yml)
+// When electron-builder publishes with --publish always, it automatically configures the update server
+console.log('Auto-updater configured to check GitHub releases');
 
 // Register custom protocol before app is ready
 if (!isDev) {
@@ -257,36 +224,10 @@ function startPythonBackend() {
       clearInterval(checkBackend);
       console.warn('Python backend did not start in time');
 
-      // Show error dialog with helpful instructions
-      if (mainWindow) {
-        const installScriptPath = path.join(scriptsDir, 'Install-Dependencies.bat');
-        const scriptExists = require('fs').existsSync(installScriptPath);
-
-        dialog.showMessageBox(mainWindow, {
-          type: 'warning',
-          title: 'Python Backend Not Running',
-          message: 'The Python backend failed to start.',
-          detail:
-            'Modelling Mate requires Python 3.9-3.11 and dependencies to be installed.\n\n' +
-            'Please ensure:\n' +
-            '1. Python 3.9-3.11 is installed\n' +
-            '2. Python is added to your PATH\n' +
-            '3. Required packages are installed\n\n' +
-            (scriptExists ? 'Click "Install Dependencies" to run the automated installer.' : 'Please reinstall the application.'),
-          buttons: scriptExists ? ['Install Dependencies', 'Continue Anyway'] : ['OK'],
-          defaultId: 0,
-          cancelId: scriptExists ? 1 : 0,
-        }).then((result) => {
-          if (result.response === 0 && scriptExists) {
-            // User clicked "Install Dependencies"
-            const { shell } = require('electron');
-            shell.openPath(installScriptPath);
-          }
-          resolve();
-        });
-      } else {
-        resolve();
-      }
+      // Python backend error dialog disabled - users can check Help > Documentation for setup instructions
+      // The application will work without the Python backend for basic functionality
+      console.warn('Python backend failed to start, but continuing without popup dialog');
+      resolve();
     }, 30000);
   });
 }
@@ -400,14 +341,15 @@ function createMenu() {
         {
           label: 'About Modelling Mate',
           click: () => {
+            const packageJson = require('../package.json');
             dialog.showMessageBox(mainWindow, {
               type: 'info',
               title: 'About Modelling Mate',
-              message: 'Modelling Mate v0.1.0',
+              message: `Modelling Mate v${packageJson.version}`,
               detail:
-                'Media Analytics & Marketing Mix Modeling Tool\n\n' +
-                'Built for BetVictor\n' +
-                'IM Sciences Ltd © 2025',
+                'Professional analytics and modeling platform\n\n' +
+                'Independent Marketing Sciences\n' +
+                '© 2025 IM Sciences Ltd',
             });
           },
         },
@@ -415,7 +357,7 @@ function createMenu() {
           label: 'Documentation',
           click: () => {
             const { shell } = require('electron');
-            shell.openExternal('https://github.com/your-repo/modelling-mate');
+            shell.openExternal('https://github.com/Independent-Marketing-Sciences/ModelHub/releases');
           },
         },
       ],
