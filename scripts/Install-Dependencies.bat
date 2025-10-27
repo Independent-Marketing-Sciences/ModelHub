@@ -42,7 +42,7 @@ echo Options to fix this:
 echo.
 echo Option 1 - Install Python (Recommended):
 echo   1. Go to: https://www.python.org/downloads/
-echo   2. Download Python 3.9, 3.10, or 3.11 (NOT 3.12+, Prophet incompatible)
+echo   2. Download Python 3.8 or later (3.9+ recommended)
 echo   3. Run installer and CHECK "Add Python to PATH"
 echo   4. Restart this installer
 echo.
@@ -64,13 +64,7 @@ echo.
 for /f "tokens=2" %%v in ('%PYTHON_CMD% --version 2^>^&1') do set PYTHON_VERSION=%%v
 echo Python version: %PYTHON_VERSION%
 
-:: Warn about Python 3.12+ (Prophet compatibility)
-echo %PYTHON_VERSION% | findstr /r "3\.1[2-9]\." >nul
-if !errorlevel! equ 0 (
-    echo %YELLOW%[WARNING] Python 3.12+ detected. Prophet may not work.%NC%
-    echo %YELLOW%Recommended: Python 3.9-3.11 for full compatibility%NC%
-    echo.
-)
+:: Note: Prophet 1.1.7 supports Python 3.8-3.12
 
 :: ============================================================================
 :: STEP 2: Locate Installation Directory
@@ -198,7 +192,7 @@ echo.
 :: We'll try multiple installation strategies
 
 echo Strategy 1: Standard pip install...
-%PYTHON_CMD% -m pip install prophet==1.1.6 --no-warn-script-location --quiet
+%PYTHON_CMD% -m pip install prophet==1.1.7 --no-warn-script-location --quiet
 
 if !errorlevel! equ 0 (
     echo %GREEN%[✓]%NC% Prophet installed successfully!
@@ -210,7 +204,7 @@ echo.
 
 :: Strategy 2: Try installing pre-built wheel
 echo Strategy 2: Attempting to install pre-compiled Prophet...
-%PYTHON_CMD% -m pip install prophet==1.1.6 --prefer-binary --no-warn-script-location --quiet
+%PYTHON_CMD% -m pip install prophet==1.1.7 --prefer-binary --no-warn-script-location --quiet
 
 if !errorlevel! equ 0 (
     echo %GREEN%[✓]%NC% Prophet installed using pre-compiled package!
@@ -220,7 +214,7 @@ if !errorlevel! equ 0 (
 :: Strategy 3: Install dependencies separately
 echo Strategy 3: Installing Prophet dependencies separately...
 %PYTHON_CMD% -m pip install pystan==2.19.1.1 --quiet
-%PYTHON_CMD% -m pip install prophet==1.1.6 --no-warn-script-location --quiet
+%PYTHON_CMD% -m pip install prophet==1.1.7 --no-warn-script-location --quiet
 
 if !errorlevel! equ 0 (
     echo %GREEN%[✓]%NC% Prophet installed via dependency-first method!

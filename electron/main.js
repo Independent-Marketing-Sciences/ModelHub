@@ -327,13 +327,22 @@ function createMenu() {
                 detail: 'Build a production version to test auto-updates.',
               });
             } else {
-              dialog.showMessageBox(mainWindow, {
+              // Set flag to indicate this is a manual check
+              autoUpdater.manualCheck = true;
+
+              // Show checking message
+              const checkingDialog = dialog.showMessageBox(mainWindow, {
                 type: 'info',
                 title: 'Checking for Updates',
                 message: 'Checking for updates...',
                 detail: 'Please wait while we check for the latest version.',
+                buttons: ['Cancel']
               });
-              autoUpdater.checkForUpdates();
+
+              // Check for updates
+              autoUpdater.checkForUpdates().catch((error) => {
+                console.error('Manual update check failed:', error);
+              });
             }
           },
         },
@@ -440,12 +449,40 @@ function setupAutoUpdater() {
   });
 
   // When no update is available
-  autoUpdater.on('update-not-available', () => {
+  autoUpdater.on('update-not-available', (info) => {
     console.log('App is up to date');
+
+    // Only show dialog if this was a manual check (not automatic)
+    if (autoUpdater.manualCheck) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'No Updates Available',
+        message: 'You are running the latest version!',
+        detail: `Current version: ${app.getVersion()}\n\nYour application is up to date.`,
+        buttons: ['OK']
+      });
+      autoUpdater.manualCheck = false; // Reset flag
+    }
+  });
+
+  // Track download progress
+  autoUpdater.on('download-progress', (progressObj) => {
+    const logMessage = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}% (${progressObj.transferred}/${progressObj.total})`;
+    console.log(logMessage);
+
+    // Update window title to show progress
+    if (mainWindow) {
+      mainWindow.setTitle(`Modelling Mate - Downloading update... ${Math.round(progressObj.percent)}%`);
+    }
   });
 
   // When update is downloaded
   autoUpdater.on('update-downloaded', (info) => {
+    // Reset window title
+    if (mainWindow) {
+      mainWindow.setTitle('Modelling Mate');
+    }
+
     dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'Update Ready',
@@ -464,6 +501,23 @@ function setupAutoUpdater() {
   // Handle errors
   autoUpdater.on('error', (error) => {
     console.error('Auto-updater error:', error);
+
+    // Show error dialog if this was a manual check
+    if (autoUpdater.manualCheck) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'error',
+        title: 'Update Check Failed',
+        message: 'Unable to check for updates',
+        detail: `Error: ${error.message}\n\nThis could be due to:\n- No internet connection\n- GitHub servers are unavailable\n- Network firewall blocking the connection\n\nPlease try again later or check the releases page manually.`,
+        buttons: ['OK', 'View Releases']
+      }).then((result) => {
+        if (result.response === 1) {
+          const { shell } = require('electron');
+          shell.openExternal('https://github.com/Independent-Marketing-Sciences/ModelHub/releases');
+        }
+      });
+      autoUpdater.manualCheck = false; // Reset flag
+    }
   });
 
   // Check for updates every 4 hours

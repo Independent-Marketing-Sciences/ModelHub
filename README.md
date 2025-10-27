@@ -47,6 +47,8 @@ npm run electron:build:win
 
 - **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Installation, building, auto-updates, and troubleshooting
 - **[scripts/README.txt](scripts/README.txt)** - End-user installation help
+- **[PROPHET-TROUBLESHOOTING.md](PROPHET-TROUBLESHOOTING.md)** - Prophet feature troubleshooting guide
+- **[CRITICAL-PROPHET-FIX.md](CRITICAL-PROPHET-FIX.md)** - Important: Prophet version fix (if you installed before 2025-10-27)
 
 ## Project Structure
 

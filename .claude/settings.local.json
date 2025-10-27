@@ -69,7 +69,13 @@
       "Bash(copy \"dist\\Modelling Mate Setup 0.1.1.exe\" \"C:\\Users\\CameronRoberts\\OneDrive - im-sciences.com\\MasterDrive\\Dev\\04 - Python Modelling Toolkit\\ModelHub-Updates\"\" && copy \"distlatest.yml\" \"C:UsersCameronRobertsOneDrive - im-sciences.comMasterDriveDev04 - Python Modelling ToolkitModelHub-Updates\"\")",
       "Bash(if exist .next rmdir /s /q .next)",
       "Bash(if exist out rmdir /s /q out)",
-      "Bash(if exist dist rmdir /s /q dist)"
+      "Bash(if exist dist rmdir /s /q dist)",
+      "Bash(git commit:*)",
+      "Bash(git tag:*)",
+      "Bash(git push:*)",
+      "Bash(gh release create:*)",
+      "Bash(npx dotenv -e .env.local -- cmd /c \"echo %GH_TOKEN%\")",
+      "Bash(npm run electron:publish:win:*)"
     ],
     "deny": [],
     "ask": []

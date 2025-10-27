@@ -136,6 +136,7 @@ export function ProphetSeasonalityTab() {
 
     setIsLoading(true);
     setError(null);
+    setTechnicalError(null);
 
     if (!selectedDateCol) {
       setError("Please select a date column");
@@ -161,6 +162,36 @@ export function ProphetSeasonalityTab() {
         return;
       }
 
+      // Validate minimum data points for Prophet
+      const MIN_DATA_POINTS = 10;
+      if (dates.length < MIN_DATA_POINTS) {
+        setError(
+          `Insufficient data for Prophet forecasting.\n\n` +
+          `Found: ${dates.length} data points\n` +
+          `Required: At least ${MIN_DATA_POINTS} data points\n\n` +
+          `Prophet requires a reasonable amount of historical data to identify patterns and trends. ` +
+          `Please load a dataset with more observations.`
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if backend is still available before making the request
+      const backendCheck = await pythonClient.checkAvailability();
+      if (!backendCheck.available) {
+        setError(
+          "Python backend is not available.\n\n" +
+          "The backend may have stopped or crashed. Please:\n" +
+          "1. Restart Modelling Mate\n" +
+          "2. Check that Python dependencies are installed\n" +
+          "3. Click 'Retry' to check connection again"
+        );
+        setTechnicalError(backendCheck.error || "Cannot connect to backend");
+        setBackendAvailable(false);
+        setIsLoading(false);
+        return;
+      }
+
       // Call Python backend
       const result = await pythonClient.prophetForecast({
         dates,
@@ -172,11 +203,54 @@ export function ProphetSeasonalityTab() {
 
       setForecastData(result);
       setTechnicalError(null); // Clear any previous errors
+      setError(null); // Clear any previous errors
     } catch (err) {
       console.error("Prophet forecast error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to generate forecast";
-      setError(`Failed to generate forecast.\n\nThis could be due to:\n- Prophet not being installed\n- Invalid date format in your data\n- Insufficient data points\n\nPlease check the technical details below.`);
-      setTechnicalError(`Error: ${errorMessage}`);
+
+      // Determine the specific error type
+      let userMessage = "Failed to generate forecast.";
+      let technicalMessage = err instanceof Error ? err.message : String(err);
+
+      // Check for specific error types
+      if (technicalMessage.includes("Failed to fetch") || technicalMessage.includes("fetch")) {
+        userMessage =
+          "Cannot connect to Python backend.\n\n" +
+          "The backend server is not responding. This usually means:\n" +
+          "1. The Python backend failed to start when the app launched\n" +
+          "2. Prophet or other dependencies are not installed\n" +
+          "3. The backend crashed during operation\n\n" +
+          "To fix this:\n" +
+          "1. Restart Modelling Mate\n" +
+          "2. Run 'Install-Dependencies.bat' as Administrator\n" +
+          "3. Check the installation folder for error logs";
+        technicalMessage = "Network error: " + technicalMessage;
+        setBackendAvailable(false);
+      } else if (technicalMessage.includes("stan_backend")) {
+        userMessage =
+          "Prophet version compatibility issue detected.\n\n" +
+          "Your Prophet installation may be outdated or incompatible.\n\n" +
+          "To fix this:\n" +
+          "1. Open Command Prompt as Administrator\n" +
+          "2. Run: pip install --upgrade prophet\n" +
+          "3. Restart Modelling Mate";
+      } else if (technicalMessage.includes("date") || technicalMessage.includes("datetime")) {
+        userMessage =
+          "Invalid date format in your data.\n\n" +
+          `Prophet could not parse the dates in column '${selectedDateCol}'.\n\n` +
+          "Supported date formats:\n" +
+          "- YYYY-MM-DD (2024-01-15)\n" +
+          "- DD/MM/YYYY (15/01/2024)\n" +
+          "- MM/DD/YYYY (01/15/2024)\n\n" +
+          "Please check your date column format.";
+      } else if (technicalMessage.includes("insufficient") || technicalMessage.includes("not enough")) {
+        userMessage =
+          "Insufficient data for forecasting.\n\n" +
+          "Prophet requires enough historical data points to detect patterns.\n" +
+          "Please ensure you have at least 10 observations with valid dates and values.";
+      }
+
+      setError(userMessage);
+      setTechnicalError(`Error: ${technicalMessage}`);
     } finally {
       setIsLoading(false);
     }
