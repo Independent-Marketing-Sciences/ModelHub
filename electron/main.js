@@ -2,12 +2,51 @@ const { app, BrowserWindow, Menu, protocol, net, dialog, ipcMain } = require('el
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const { spawn } = require('child_process');
+const fs = require('fs');
 
 let mainWindow;
 let pythonBackend;
+let pythonBackendStatus = 'not_started'; // not_started, starting, running, failed, stopped
+let pythonBackendError = null;
+let pythonBackendStartAttempts = 0;
+const MAX_START_ATTEMPTS = 3;
 const isDev = process.env.NODE_ENV === 'development';
 const port = process.env.PORT || 3000;
 const pythonPort = 8000;
+
+// Setup logging to file for debugging production issues
+const logFilePath = path.join(app.getPath('userData'), 'modelling-mate.log');
+const logStream = fs.createWriteStream(logFilePath, { flags: 'a' });
+
+// Store original console methods
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+
+function logToFile(message) {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${message}\n`;
+  logStream.write(logMessage);
+  originalConsoleLog(message); // Use original console.log
+}
+
+// Override console methods to also log to file
+console.log = function(...args) {
+  const message = args.join(' ');
+  logToFile(message);
+};
+
+console.error = function(...args) {
+  const message = 'ERROR: ' + args.join(' ');
+  logToFile(message);
+};
+
+logToFile('='.repeat(80));
+logToFile('Modelling Mate Starting');
+logToFile(`Version: ${app.getVersion()}`);
+logToFile(`Platform: ${process.platform} ${process.arch}`);
+logToFile(`Node: ${process.versions.node}, Electron: ${process.versions.electron}`);
+logToFile(`User Data: ${app.getPath('userData')}`);
+logToFile(`Log File: ${logFilePath}`);
 
 // Configure auto-updater to use GitHub Releases
 autoUpdater.autoDownload = false; // Don't auto-download, ask user first
@@ -90,7 +129,83 @@ function checkPythonAvailable() {
   });
 }
 
+async function checkPythonInstalled() {
+  // Check if Python is installed and accessible
+  return new Promise((resolve) => {
+    const pythonExe = process.platform === 'win32' ? 'python' : 'python3';
+    const checkProcess = spawn(pythonExe, ['--version'], {
+      shell: process.platform === 'win32' ? 'cmd.exe' : true
+    });
+
+    let versionOutput = '';
+
+    checkProcess.stdout.on('data', (data) => {
+      versionOutput += data.toString();
+    });
+
+    checkProcess.stderr.on('data', (data) => {
+      versionOutput += data.toString();
+    });
+
+    checkProcess.on('close', (code) => {
+      if (code === 0 && versionOutput) {
+        console.log('Python found:', versionOutput.trim());
+        resolve({ installed: true, version: versionOutput.trim() });
+      } else {
+        console.error('Python not found or not accessible');
+        resolve({ installed: false, error: 'Python not found in PATH' });
+      }
+    });
+
+    checkProcess.on('error', (error) => {
+      console.error('Error checking Python:', error);
+      resolve({ installed: false, error: error.message });
+    });
+
+    // Timeout after 5 seconds
+    setTimeout(() => {
+      checkProcess.kill();
+      resolve({ installed: false, error: 'Python check timed out' });
+    }, 5000);
+  });
+}
+
+async function checkPortAvailable(port) {
+  // Check if a port is already in use
+  return new Promise((resolve) => {
+    const http = require('http');
+    const server = http.createServer();
+
+    server.once('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        resolve({ available: false, error: `Port ${port} is already in use` });
+      } else {
+        resolve({ available: false, error: err.message });
+      }
+    });
+
+    server.once('listening', () => {
+      server.close();
+      resolve({ available: true });
+    });
+
+    server.listen(port);
+  });
+}
+
 function startPythonBackend() {
+  pythonBackendStartAttempts++;
+
+  if (pythonBackendStartAttempts > MAX_START_ATTEMPTS) {
+    console.error(`Failed to start Python backend after ${MAX_START_ATTEMPTS} attempts`);
+    pythonBackendStatus = 'failed';
+    pythonBackendError = `Failed after ${MAX_START_ATTEMPTS} attempts`;
+    return Promise.resolve();
+  }
+
+  pythonBackendStatus = 'starting';
+  pythonBackendError = null;
+
   // Start the Python FastAPI backend
   // In development: __dirname is /electron
   // In production: backend is unpacked to /resources/app.asar.unpacked/backend/src
@@ -118,12 +233,14 @@ function startPythonBackend() {
 
   // Check if Python script exists first
   const pythonScript = path.join(pythonDir, 'main.py');
-  const fs = require('fs');
 
   if (!fs.existsSync(pythonScript)) {
     console.error('Python script not found at:', pythonScript);
     console.error('Python dir:', pythonDir);
     console.error('Directory contents:', fs.existsSync(pythonDir) ? fs.readdirSync(pythonDir) : 'Directory does not exist');
+
+    pythonBackendStatus = 'failed';
+    pythonBackendError = `Backend files not found at ${pythonScript}`;
 
     if (mainWindow) {
       dialog.showMessageBox(mainWindow, {
@@ -137,98 +254,339 @@ function startPythonBackend() {
     return Promise.resolve();
   }
 
-  // Determine Python executable path - try multiple options
-  let pythonExe = 'python';
-  if (process.platform !== 'win32') {
-    pythonExe = 'python3';
-  }
+  return new Promise(async (resolve) => {
+    console.log('Starting Python backend...');
+    console.log('Running pre-flight checks...');
 
-  console.log('Starting Python backend...');
-  console.log('Python executable:', pythonExe);
-  console.log('Python script:', pythonScript);
-  console.log('Working directory:', pythonDir);
+    // Check for port availability first (applies to both bundled and system Python)
+    const portCheck = await checkPortAvailable(pythonPort);
+    if (!portCheck.available) {
+      console.error('Port not available:', portCheck.error);
+      pythonBackendStatus = 'failed';
+      pythonBackendError = portCheck.error;
 
-  // Always run Python script from source
-  // Use 'cmd.exe' explicitly on Windows to avoid ENOENT error
-  const spawnOptions = {
-    cwd: pythonDir,
-    shell: process.platform === 'win32' ? 'cmd.exe' : true,
-  };
+      if (mainWindow) {
+        dialog.showMessageBox(mainWindow, {
+          type: 'warning',
+          title: 'Port Already In Use',
+          message: `Port ${pythonPort} is already in use`,
+          detail:
+            'Another application is using the port needed by the Python backend.\n\n' +
+            'This could be:\n' +
+            '- Another instance of this application\n' +
+            '- A development server running on the same port\n' +
+            '- Another application using port 8000\n\n' +
+            'Please close the other application and restart Modelling Mate.',
+          buttons: ['OK']
+        });
+      }
 
-  pythonBackend = spawn(pythonExe, [pythonScript], spawnOptions);
-
-  pythonBackend.stdout.on('data', (data) => {
-    console.log(`Python Backend: ${data}`);
-  });
-
-  pythonBackend.stderr.on('data', (data) => {
-    console.error(`Python Backend Error: ${data}`);
-  });
-
-  pythonBackend.on('error', (error) => {
-    console.error('Failed to start Python backend:', error);
-
-    // Show error dialog to user with option to run installer
-    if (mainWindow) {
-      const installScriptPath = path.join(scriptsDir, 'Install-Dependencies.bat');
-      const scriptExists = require('fs').existsSync(installScriptPath);
-
-      dialog.showMessageBox(mainWindow, {
-        type: 'error',
-        title: 'Python Backend Error',
-        message: 'Failed to start the Python backend.',
-        detail:
-          'Please make sure:\n' +
-          '1. Python 3.9-3.11 is installed\n' +
-          '2. Python is added to your PATH\n' +
-          '3. Required packages are installed\n\n' +
-          `Error: ${error.message}`,
-        buttons: scriptExists ? ['Run Dependency Installer', 'OK'] : ['OK'],
-        defaultId: 0,
-        cancelId: scriptExists ? 1 : 0,
-      }).then((result) => {
-        if (result.response === 0 && scriptExists) {
-          // User clicked "Run Dependency Installer"
-          const { shell } = require('electron');
-          shell.openPath(installScriptPath);
-        }
-      });
+      resolve();
+      return;
     }
-  });
 
-  pythonBackend.on('close', (code) => {
-    console.log(`Python backend exited with code ${code}`);
-  });
+    // Try to find bundled Python backend first (PREFERRED - no Python install needed!)
+    let bundledBackendPath;
+    if (isDev) {
+      bundledBackendPath = path.join(__dirname, '../backend/dist/modelling-mate-backend/modelling-mate-backend.exe');
+    } else {
+      // In production, try multiple possible locations
+      const appPath = app.getAppPath();
+      const possiblePaths = [
+        path.join(appPath + '.unpacked', 'backend', 'dist', 'modelling-mate-backend', 'modelling-mate-backend.exe'),
+        path.join(path.dirname(appPath), 'app.asar.unpacked', 'backend', 'dist', 'modelling-mate-backend', 'modelling-mate-backend.exe'),
+        path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'dist', 'modelling-mate-backend', 'modelling-mate-backend.exe'),
+      ];
 
-  return new Promise((resolve) => {
-    // Wait for backend to be ready
+      // Try each possible path
+      for (const testPath of possiblePaths) {
+        console.log('Checking path:', testPath);
+        if (fs.existsSync(testPath)) {
+          bundledBackendPath = testPath;
+          break;
+        }
+      }
+
+      // If not found, use first path as default (for error messages)
+      if (!bundledBackendPath) {
+        bundledBackendPath = possiblePaths[0];
+      }
+    }
+
+    const useBundledBackend = fs.existsSync(bundledBackendPath);
+    console.log('Bundled backend check:', useBundledBackend ? 'FOUND ✓' : 'NOT FOUND');
+    if (useBundledBackend) {
+      console.log('Bundled backend path:', bundledBackendPath);
+    } else {
+      console.log('Bundled backend NOT found. Checked paths:');
+      if (!isDev) {
+        const appPath = app.getAppPath();
+        console.log('  -', path.join(appPath + '.unpacked', 'backend', 'dist', 'modelling-mate-backend', 'modelling-mate-backend.exe'));
+        console.log('  -', path.join(path.dirname(appPath), 'app.asar.unpacked', 'backend', 'dist', 'modelling-mate-backend', 'modelling-mate-backend.exe'));
+        console.log('  -', path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'dist', 'modelling-mate-backend', 'modelling-mate-backend.exe'));
+      }
+    }
+
+    let pythonExe, pythonArgs, workingDir, pythonVersion;
+
+    if (useBundledBackend) {
+      // Use bundled Python backend (no Python installation required!)
+      console.log('Using BUNDLED Python backend (self-contained)');
+      pythonExe = bundledBackendPath;
+      pythonArgs = [];  // No arguments needed - executable handles everything
+      workingDir = path.dirname(bundledBackendPath);
+      pythonVersion = 'Bundled (self-contained)';
+
+      // Verify the working directory exists
+      if (!fs.existsSync(workingDir)) {
+        console.error('ERROR: Bundled backend directory does not exist:', workingDir);
+        pythonBackendStatus = 'failed';
+        pythonBackendError = `Backend directory not found: ${workingDir}`;
+        resolve();
+        return;
+      }
+
+      // Log directory contents for debugging
+      console.log('Working directory:', workingDir);
+      console.log('Directory contents:', fs.readdirSync(workingDir).join(', '));
+    } else {
+      // Fallback to system Python (requires Python installation)
+      console.log('Bundled backend not found, checking for system Python...');
+
+      const pythonCheck = await checkPythonInstalled();
+      if (!pythonCheck.installed) {
+        console.error('Python not installed:', pythonCheck.error);
+        pythonBackendStatus = 'failed';
+        pythonBackendError = pythonCheck.error;
+
+        if (mainWindow) {
+          const installScriptPath = path.join(scriptsDir, 'Install-Dependencies.bat');
+          const scriptExists = fs.existsSync(installScriptPath);
+
+          dialog.showMessageBox(mainWindow, {
+            type: 'error',
+            title: 'Python Backend Not Available',
+            message: 'Neither bundled backend nor system Python found',
+            detail:
+              'The application was built without the bundled Python backend.\n\n' +
+              'Fallback option - Install Python:\n' +
+              '1. Install Python 3.9-3.11 from python.org\n' +
+              '2. Check "Add Python to PATH" during installation\n' +
+              '3. Run Install-Dependencies.bat as Administrator\n' +
+              '4. Restart this application\n\n' +
+              'Or contact support for a version with bundled Python.\n\n' +
+              `Technical error: ${pythonCheck.error}`,
+            buttons: scriptExists ? ['Open Scripts Folder', 'OK'] : ['OK'],
+            defaultId: scriptExists ? 0 : 0,
+            cancelId: scriptExists ? 1 : 0,
+          }).then((result) => {
+            if (result.response === 0 && scriptExists) {
+              const { shell } = require('electron');
+              shell.openPath(path.dirname(installScriptPath));
+            }
+          });
+        }
+
+        resolve();
+        return;
+      }
+
+      // System Python found - use it
+      console.log('Using SYSTEM Python (requires dependencies)');
+      pythonExe = process.platform === 'win32' ? 'python' : 'python3';
+      pythonArgs = [pythonScript];
+      workingDir = pythonDir;
+      pythonVersion = pythonCheck.version;
+    }
+
+    // Start the backend (either bundled or system Python)
+    console.log('='.repeat(50));
+    console.log('Backend Configuration:');
+    console.log('  Type:', useBundledBackend ? 'BUNDLED (self-contained)' : 'SYSTEM (requires Python)');
+    console.log('  Executable:', pythonExe);
+    console.log('  Arguments:', pythonArgs.length > 0 ? pythonArgs : '(none)');
+    console.log('  Working Dir:', workingDir);
+    console.log('  Python Version:', pythonVersion);
+    console.log('  Port:', pythonPort);
+    console.log('='.repeat(50));
+
+    const spawnOptions = {
+      cwd: workingDir,
+      shell: process.platform === 'win32' ? 'cmd.exe' : true,
+    };
+
+    pythonBackend = spawn(pythonExe, pythonArgs, spawnOptions);
+
+    let backendOutput = '';
+    let backendErrors = '';
+
+    pythonBackend.stdout.on('data', (data) => {
+      const output = data.toString();
+      backendOutput += output;
+      console.log(`Python Backend: ${output}`);
+
+      // Check if backend has started successfully
+      if (output.includes('Uvicorn running') || output.includes('Application startup complete')) {
+        console.log('Python backend startup detected in output');
+      }
+    });
+
+    pythonBackend.stderr.on('data', (data) => {
+      const error = data.toString();
+      backendErrors += error;
+      console.error(`Python Backend Error: ${error}`);
+
+      // Check for common errors
+      if (error.includes('ModuleNotFoundError') || error.includes('No module named')) {
+        console.error('Missing Python module detected');
+        pythonBackendError = 'Missing required Python packages. Please run Install-Dependencies.bat';
+      } else if (error.includes('Address already in use') || error.includes('EADDRINUSE')) {
+        console.error('Port already in use');
+        pythonBackendError = `Port ${pythonPort} is already in use`;
+      } else if (error.includes('prophet')) {
+        console.error('Prophet-related error detected');
+        pythonBackendError = 'Prophet library error. May need to reinstall dependencies.';
+      }
+    });
+
+    pythonBackend.on('error', (error) => {
+      console.error('Failed to spawn Python backend process:', error);
+      pythonBackendStatus = 'failed';
+      pythonBackendError = error.message;
+
+      if (mainWindow) {
+        const installScriptPath = path.join(scriptsDir, 'Install-Dependencies.bat');
+        const scriptExists = fs.existsSync(installScriptPath);
+
+        dialog.showMessageBox(mainWindow, {
+          type: 'error',
+          title: 'Python Backend Error',
+          message: 'Failed to start the Python backend process',
+          detail:
+            'An error occurred while trying to start the Python backend.\n\n' +
+            'Please make sure:\n' +
+            '1. Python 3.9-3.11 is installed\n' +
+            '2. Python is added to your PATH\n' +
+            '3. Required packages are installed\n\n' +
+            `Technical error: ${error.message}`,
+          buttons: scriptExists ? ['Run Dependency Installer', 'OK'] : ['OK'],
+          defaultId: 0,
+          cancelId: scriptExists ? 1 : 0,
+        }).then((result) => {
+          if (result.response === 0 && scriptExists) {
+            const { shell } = require('electron');
+            shell.openPath(installScriptPath);
+          }
+        });
+      }
+    });
+
+    pythonBackend.on('close', (code) => {
+      console.log(`Python backend exited with code ${code}`);
+
+      if (code !== 0 && code !== null) {
+        console.error('Python backend crashed');
+        console.error('Last output:', backendOutput);
+        console.error('Last errors:', backendErrors);
+
+        pythonBackendStatus = 'failed';
+
+        if (!pythonBackendError) {
+          pythonBackendError = `Backend exited with code ${code}. Check logs for details.`;
+        }
+
+        // Show error if window is available and we haven't shown too many dialogs
+        if (mainWindow && pythonBackendStartAttempts === 1) {
+          dialog.showMessageBox(mainWindow, {
+            type: 'error',
+            title: 'Python Backend Crashed',
+            message: 'The Python backend stopped unexpectedly',
+            detail:
+              `The backend process exited with code ${code}.\n\n` +
+              'Common causes:\n' +
+              '- Missing or incompatible Python packages\n' +
+              '- Python version incompatibility (requires 3.9-3.11)\n' +
+              '- Corrupted installation\n\n' +
+              'Try running Install-Dependencies.bat as Administrator.\n\n' +
+              `Technical error: ${pythonBackendError || 'Check console for details'}`,
+            buttons: ['OK']
+          });
+        }
+      } else {
+        pythonBackendStatus = 'stopped';
+      }
+    });
+
+    // Wait for backend to be ready with health checks
+    let healthCheckAttempts = 0;
+    const MAX_HEALTH_CHECKS = 30; // 30 seconds
+
     const checkBackend = setInterval(async () => {
+      healthCheckAttempts++;
+
       try {
         const http = require('http');
         http.get(`http://localhost:${pythonPort}/health`, (res) => {
           if (res.statusCode === 200) {
-            console.log('Python backend is ready!');
+            console.log(`Python backend is ready! (took ${healthCheckAttempts} seconds)`);
+            pythonBackendStatus = 'running';
+            pythonBackendError = null;
             clearInterval(checkBackend);
             resolve();
           }
-        }).on('error', () => {
+        }).on('error', (err) => {
           // Backend not ready yet, keep checking
+          if (healthCheckAttempts >= MAX_HEALTH_CHECKS) {
+            console.error('Health check failed:', err.message);
+          }
         });
       } catch (error) {
         // Backend not ready yet
       }
+
+      // Check if we've exceeded max attempts
+      if (healthCheckAttempts >= MAX_HEALTH_CHECKS) {
+        clearInterval(checkBackend);
+        console.warn(`Python backend did not respond to health checks after ${MAX_HEALTH_CHECKS} seconds`);
+
+        pythonBackendStatus = 'failed';
+        if (!pythonBackendError) {
+          pythonBackendError = 'Backend started but did not respond to health checks';
+        }
+
+        console.warn('Backend output:', backendOutput);
+        console.warn('Backend errors:', backendErrors);
+
+        // Show a more informative error to the user
+        if (mainWindow && pythonBackendStartAttempts === 1) {
+          const installScriptPath = path.join(scriptsDir, 'Install-Dependencies.bat');
+          const scriptExists = fs.existsSync(installScriptPath);
+
+          dialog.showMessageBox(mainWindow, {
+            type: 'warning',
+            title: 'Python Backend Not Responding',
+            message: 'The Python backend started but is not responding',
+            detail:
+              'The backend process started but failed to respond to health checks.\n\n' +
+              'This usually means:\n' +
+              '- Required Python packages are not installed\n' +
+              '- Prophet or other dependencies have errors\n' +
+              '- Python version is incompatible (requires 3.9-3.11)\n\n' +
+              'Please run Install-Dependencies.bat as Administrator.\n\n' +
+              `Technical error: ${pythonBackendError}`,
+            buttons: scriptExists ? ['Open Scripts Folder', 'Continue Without Backend'] : ['Continue Without Backend'],
+            defaultId: 0,
+          }).then((result) => {
+            if (result.response === 0 && scriptExists) {
+              const { shell } = require('electron');
+              shell.openPath(path.dirname(installScriptPath));
+            }
+          });
+        }
+
+        resolve();
+      }
     }, 1000); // Check every second
-
-    // Timeout after 30 seconds
-    setTimeout(() => {
-      clearInterval(checkBackend);
-      console.warn('Python backend did not start in time');
-
-      // Python backend error dialog disabled - users can check Help > Documentation for setup instructions
-      // The application will work without the Python backend for basic functionality
-      console.warn('Python backend failed to start, but continuing without popup dialog');
-      resolve();
-    }, 30000);
   });
 }
 
@@ -282,22 +640,89 @@ function createMenu() {
       label: 'Tools',
       submenu: [
         {
-          label: 'Install Python Dependencies',
+          label: 'Backend Status',
           click: () => {
-            const scriptsDir = isDev
-              ? path.join(__dirname, '../scripts')
-              : path.join(app.getAppPath() + '.unpacked', 'scripts');
-            const installScriptPath = path.join(scriptsDir, 'Install-Dependencies.bat');
+            const statusMessage = pythonBackendStatus === 'running'
+              ? 'Python backend is running successfully'
+              : pythonBackendStatus === 'starting'
+              ? 'Python backend is starting...'
+              : pythonBackendStatus === 'failed'
+              ? `Python backend failed to start: ${pythonBackendError || 'Unknown error'}`
+              : 'Python backend not started';
 
-            if (require('fs').existsSync(installScriptPath)) {
-              const { shell } = require('electron');
-              shell.openPath(installScriptPath);
-            } else {
+            dialog.showMessageBox(mainWindow, {
+              type: pythonBackendStatus === 'running' ? 'info' : 'warning',
+              title: 'Backend Status',
+              message: statusMessage,
+              detail: pythonBackendStatus === 'running'
+                ? `Running on port ${pythonPort}\nAttempts: ${pythonBackendStartAttempts}`
+                : pythonBackendStatus === 'failed'
+                ? 'The app includes a bundled Python backend. If you see this error, please restart the application.'
+                : 'Backend is initializing...',
+            });
+          },
+        },
+        {
+          label: 'Restart Backend',
+          click: async () => {
+            const result = await dialog.showMessageBox(mainWindow, {
+              type: 'question',
+              title: 'Restart Backend',
+              message: 'Are you sure you want to restart the Python backend?',
+              detail: 'This will temporarily interrupt Prophet forecasting and other Python features.',
+              buttons: ['Restart', 'Cancel'],
+              defaultId: 1,
+            });
+
+            if (result.response === 0) {
+              // Kill existing backend
+              if (pythonBackend) {
+                pythonBackend.kill();
+              }
+              pythonBackendStatus = 'not_started';
+              pythonBackendError = null;
+              pythonBackendStartAttempts = 0;
+
+              // Restart
+              await startPythonBackend();
+
               dialog.showMessageBox(mainWindow, {
-                type: 'error',
-                title: 'Script Not Found',
-                message: 'Could not find Install-Dependencies.bat',
-                detail: `Expected location: ${installScriptPath}`,
+                type: 'info',
+                title: 'Backend Restarted',
+                message: 'Python backend has been restarted',
+                detail: `Status: ${pythonBackendStatus}`,
+              });
+            }
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'Clear Application Cache',
+          click: async () => {
+            const result = await dialog.showMessageBox(mainWindow, {
+              type: 'question',
+              title: 'Clear Cache',
+              message: 'Clear application cache and data?',
+              detail: 'This will clear cached data and require reloading datasets. Your files will not be affected.',
+              buttons: ['Clear Cache', 'Cancel'],
+              defaultId: 1,
+            });
+
+            if (result.response === 0) {
+              const { session } = require('electron');
+              await session.defaultSession.clearCache();
+              await session.defaultSession.clearStorageData();
+
+              dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'Cache Cleared',
+                message: 'Application cache has been cleared',
+                detail: 'Please reload the application for changes to take effect.',
+                buttons: ['Reload Now', 'Later'],
+              }).then((result) => {
+                if (result.response === 0) {
+                  mainWindow.reload();
+                }
               });
             }
           },
@@ -309,6 +734,32 @@ function createMenu() {
             const { shell } = require('electron');
             const installDir = isDev ? __dirname : app.getAppPath();
             shell.openPath(path.dirname(installDir));
+          },
+        },
+        {
+          label: 'Open User Data Folder',
+          click: () => {
+            const { shell } = require('electron');
+            shell.openPath(app.getPath('userData'));
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'View Log File',
+          click: () => {
+            const { shell } = require('electron');
+            // Check if log file exists
+            if (fs.existsSync(logFilePath)) {
+              shell.openPath(logFilePath);
+            } else {
+              dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'Log File',
+                message: 'Log file not found',
+                detail: `Expected location: ${logFilePath}\n\nThe log file is created when the app starts.`,
+                buttons: ['OK']
+              });
+            }
           },
         },
       ],
@@ -378,6 +829,42 @@ function createMenu() {
 }
 
 // IPC Handlers
+ipcMain.handle('python:getStatus', async () => {
+  return {
+    status: pythonBackendStatus,
+    error: pythonBackendError,
+    attempts: pythonBackendStartAttempts,
+    port: pythonPort
+  };
+});
+
+ipcMain.handle('python:restart', async () => {
+  console.log('Restarting Python backend via IPC...');
+
+  // Kill existing backend if running
+  if (pythonBackend) {
+    try {
+      pythonBackend.kill();
+      console.log('Killed existing Python backend process');
+    } catch (error) {
+      console.error('Error killing Python backend:', error);
+    }
+  }
+
+  // Reset status
+  pythonBackendStatus = 'not_started';
+  pythonBackendError = null;
+  pythonBackendStartAttempts = 0;
+
+  // Start backend again
+  await startPythonBackend();
+
+  return {
+    status: pythonBackendStatus,
+    error: pythonBackendError
+  };
+});
+
 ipcMain.handle('dialog:openFile', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
@@ -567,8 +1054,14 @@ app.on('window-all-closed', () => {
 
 // Kill servers when app quits
 app.on('before-quit', () => {
+  console.log('Application shutting down...');
   if (pythonBackend) {
+    console.log('Stopping Python backend...');
     pythonBackend.kill();
+  }
+  // Close log stream
+  if (logStream) {
+    logStream.end();
   }
 });
 

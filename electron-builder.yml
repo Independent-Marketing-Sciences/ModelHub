@@ -23,14 +23,15 @@ publish:
 files:
   - electron/**/*
   - out/**/*
-  - backend/**/*
+  - backend/dist/modelling-mate-backend/**/*  # PyInstaller bundled backend
+  - backend/src/**/*  # Keep source as fallback
   - scripts/**/*
   - "!backend/build/**/*"
-  - "!backend/dist/**/*"
   - "!backend/**/__pycache__/**/*"
+  - "!backend/**/*.pyc"
   - package.json
 
-# Unpack backend and scripts from ASAR so Python can access the files
+# Unpack backend and scripts from ASAR so they can be executed
 asarUnpack:
   - backend/**/*
   - scripts/**/*
@@ -41,6 +42,18 @@ win:
       arch:
         - x64
   icon: IMS_SiteIcon.png
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  deleteAppDataOnUninstall: false
+
+  # Auto-uninstall previous version before installing new version
+  allowElevation: true
+
+  # Custom NSIS script to handle uninstall
+  include: scripts/installer.nsh
 
 # CRITICAL: Completely disable all signing
 forceCodeSigning: false

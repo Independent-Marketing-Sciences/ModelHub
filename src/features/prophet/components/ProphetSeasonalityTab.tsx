@@ -18,6 +18,8 @@ export function ProphetSeasonalityTab() {
   const [backendAvailable, setBackendAvailable] = useState(false);
   const [forecastData, setForecastData] = useState<ProphetForecastResponse | null>(null);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<any>(null);
+  const [isRestarting, setIsRestarting] = useState(false);
 
   const { columns, getFilteredData } = useDataStore();
 
@@ -74,27 +76,77 @@ export function ProphetSeasonalityTab() {
 
   const checkBackend = async () => {
     try {
+      // First check IPC status for detailed diagnostics
+      if (window.electron) {
+        try {
+          const status = await window.electron.invoke('python:getStatus');
+          setBackendStatus(status);
+          console.log('Backend status from IPC:', status);
+        } catch (ipcError) {
+          console.warn('Could not get backend status via IPC:', ipcError);
+        }
+      }
+
       const result = await pythonClient.checkAvailability();
       setBackendAvailable(result.available);
 
       if (!result.available) {
-        setError(
-          "Prophet forecasting is not available.\n\n" +
-          "To enable this feature:\n" +
-          "1. Make sure Python is installed on your system\n" +
-          "2. Run 'Install-Dependencies.bat' as Administrator (found in the Modelling Mate installation folder)\n" +
-          "3. Wait for installation to complete (5-10 minutes)\n" +
-          "4. Restart Modelling Mate\n\n" +
-          "Note: Prophet requires Microsoft C++ Build Tools on Windows.\n" +
-          "See the troubleshooting guide if installation fails."
-        );
+        // Get detailed error from backend status if available
+        let detailedError = result.error || "Unable to connect to Python backend";
 
-        // Store technical error details
-        if (result.error) {
-          setTechnicalError(`Technical details: ${result.error}`);
-        } else {
-          setTechnicalError("Technical details: Unable to connect to Python backend at http://localhost:8000");
+        if (backendStatus?.error) {
+          detailedError = backendStatus.error;
         }
+
+        // Provide context-specific guidance based on the error
+        let errorMessage = "Prophet forecasting is not available.\n\n";
+        let guidance = "";
+
+        if (detailedError.includes('Python not found') || detailedError.includes('not in PATH')) {
+          guidance =
+            "Python is not installed or not in your system PATH.\n\n" +
+            "To fix this:\n" +
+            "1. Install Python 3.9-3.11 from python.org\n" +
+            "2. During installation, check 'Add Python to PATH'\n" +
+            "3. Restart your computer\n" +
+            "4. Relaunch Modelling Mate";
+        } else if (detailedError.includes('Port') && detailedError.includes('already in use')) {
+          guidance =
+            "Port 8000 is already in use by another application.\n\n" +
+            "To fix this:\n" +
+            "1. Close any other instances of Modelling Mate\n" +
+            "2. Close any development servers running on port 8000\n" +
+            "3. Restart Modelling Mate\n\n" +
+            "Or click 'Restart Backend' below to try again.";
+        } else if (detailedError.includes('Missing required Python packages') || detailedError.includes('ModuleNotFoundError')) {
+          guidance =
+            "Python dependencies are missing.\n\n" +
+            "To fix this:\n" +
+            "1. Find 'Install-Dependencies.bat' in the Modelling Mate installation folder\n" +
+            "2. Right-click and select 'Run as Administrator'\n" +
+            "3. Wait for installation to complete (5-10 minutes)\n" +
+            "4. Click 'Restart Backend' below";
+        } else if (detailedError.includes('did not respond to health checks') || detailedError.includes('not responding')) {
+          guidance =
+            "The Python backend started but is not responding.\n\n" +
+            "This usually means dependencies are missing or incompatible.\n\n" +
+            "To fix this:\n" +
+            "1. Run 'Install-Dependencies.bat' as Administrator\n" +
+            "2. Make sure you have Python 3.9-3.11 (NOT 3.12+)\n" +
+            "3. Install Microsoft C++ Build Tools if needed\n" +
+            "4. Click 'Restart Backend' below";
+        } else {
+          guidance =
+            "To enable Prophet forecasting:\n" +
+            "1. Make sure Python 3.9-3.11 is installed\n" +
+            "2. Run 'Install-Dependencies.bat' as Administrator\n" +
+            "3. Wait for installation to complete (5-10 minutes)\n" +
+            "4. Click 'Restart Backend' below\n\n" +
+            "Note: Prophet requires Microsoft C++ Build Tools on Windows.";
+        }
+
+        setError(errorMessage + guidance);
+        setTechnicalError(`Status: ${backendStatus?.status || 'unknown'}\nError: ${detailedError}\nAttempts: ${backendStatus?.attempts || 0}`);
       } else {
         // Backend is available, check if Prophet is actually installed
         if (result.details?.dependencies?.prophet === false) {
@@ -103,11 +155,15 @@ export function ProphetSeasonalityTab() {
             "To fix this:\n" +
             "1. Run 'Install-Dependencies.bat' as Administrator\n" +
             "2. Wait for installation to complete\n" +
-            "3. Restart Modelling Mate\n\n" +
+            "3. Click 'Restart Backend' below\n\n" +
             "If installation fails, you may need Microsoft C++ Build Tools."
           );
-          setTechnicalError("Technical details: Python backend is running but Prophet library is not installed");
+          setTechnicalError("Python backend is running but Prophet library is not installed");
           setBackendAvailable(false);
+        } else {
+          // Everything is working
+          setError(null);
+          setTechnicalError(null);
         }
       }
     } catch (err) {
@@ -115,11 +171,40 @@ export function ProphetSeasonalityTab() {
       setError(
         "Failed to check Python backend status.\n\n" +
         "Please ensure:\n" +
-        "1. Python is installed\n" +
+        "1. Python 3.9-3.11 is installed\n" +
         "2. Dependencies are installed (run Install-Dependencies.bat)\n" +
-        "3. The app has been restarted"
+        "3. Try clicking 'Restart Backend' below"
       );
-      setTechnicalError(`Technical details: ${err instanceof Error ? err.message : String(err)}`);
+      setTechnicalError(`${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  const handleRestartBackend = async () => {
+    setIsRestarting(true);
+    setError("Restarting Python backend...\n\nThis may take up to 30 seconds.");
+    setTechnicalError(null);
+
+    try {
+      if (!window.electron) {
+        throw new Error('Electron IPC not available. Backend restart only works in desktop app.');
+      }
+
+      const result = await window.electron.invoke('python:restart');
+      console.log('Backend restart result:', result);
+
+      // Wait a moment for backend to start
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Check status again
+      await checkBackend();
+    } catch (err) {
+      setError(
+        "Failed to restart backend.\n\n" +
+        "Please restart the entire application instead."
+      );
+      setTechnicalError(`Restart error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsRestarting(false);
     }
   };
 
@@ -322,20 +407,30 @@ export function ProphetSeasonalityTab() {
                   <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
                     <div className="text-sm text-red-800 dark:text-red-300 font-medium mb-2">
-                      {!backendAvailable ? "Prophet Forecasting Not Available" : "Error"}
+                      {!backendAvailable && !isRestarting ? "Prophet Forecasting Not Available" : isRestarting ? "Restarting Backend..." : "Error"}
                     </div>
                     <div className="text-sm text-red-700 dark:text-red-400 whitespace-pre-line">{error}</div>
-                    {!backendAvailable && (
+                    {!backendAvailable && !isRestarting && (
                       <div className="mt-3 text-xs text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 rounded px-2 py-1">
                         <Info className="h-3 w-3 inline mr-1" />
                         Installation folder: C:\Users\[YourUsername]\AppData\Local\Programs\modelling-mate\
                       </div>
                     )}
                   </div>
-                  {!backendAvailable && (
-                    <Button variant="outline" size="sm" onClick={checkBackend} className="flex-shrink-0">
-                      Retry
-                    </Button>
+                  {!backendAvailable && !isRestarting && (
+                    <div className="flex flex-col gap-2 flex-shrink-0">
+                      <Button variant="outline" size="sm" onClick={checkBackend} className="whitespace-nowrap">
+                        Check Again
+                      </Button>
+                      {window.electron && (
+                        <Button variant="default" size="sm" onClick={handleRestartBackend} className="whitespace-nowrap">
+                          Restart Backend
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  {isRestarting && (
+                    <Loader2 className="h-5 w-5 text-red-600 dark:text-red-400 animate-spin flex-shrink-0" />
                   )}
                 </div>
 

@@ -11,5 +11,8 @@ contextBridge.exposeInMainWorld('electron', {
   // App info
   getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
 
+  // Generic IPC invoke for additional features
+  invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+
   // Future: Add more secure APIs as needed
 });

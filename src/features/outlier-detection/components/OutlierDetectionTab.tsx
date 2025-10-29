@@ -5,7 +5,7 @@ import { useDataStore } from "@/lib/store";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Download } from "lucide-react";
+import { Download, Filter } from "lucide-react";
 import * as XLSX from "xlsx";
 
 interface OutlierInfo {
@@ -22,6 +22,7 @@ export function OutlierDetectionTab() {
   const { getFilteredData, columns, dateColumn } = useDataStore();
   const [variableFilter, setVariableFilter] = useState("");
   const [deviationThreshold, setDeviationThreshold] = useState(3);
+  const [regexError, setRegexError] = useState<string | null>(null);
 
   const dateFilteredData = getFilteredData();
 
@@ -80,12 +81,21 @@ export function OutlierDetectionTab() {
     return allOutliers.sort((a, b) => b.deviations - a.deviations);
   }, [dateFilteredData, columns, detectedDateColumn, deviationThreshold]);
 
-  // Filter outliers by variable name
+  // Filter outliers by variable name using regex
   const filteredOutliers = useMemo(() => {
-    if (!variableFilter) return outlierAnalysis;
-    return outlierAnalysis.filter(outlier =>
-      outlier.variable.toLowerCase().includes(variableFilter.toLowerCase())
-    );
+    if (!variableFilter.trim()) {
+      setRegexError(null);
+      return outlierAnalysis;
+    }
+
+    try {
+      const regex = new RegExp(variableFilter, 'i');
+      setRegexError(null);
+      return outlierAnalysis.filter(outlier => regex.test(outlier.variable));
+    } catch (e) {
+      setRegexError("Invalid regex pattern");
+      return outlierAnalysis;
+    }
   }, [outlierAnalysis, variableFilter]);
 
   // Summary statistics
@@ -232,19 +242,36 @@ export function OutlierDetectionTab() {
 
           {/* Outliers Table */}
           <div>
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium">Detected Outliers</h3>
-                <p className="text-sm text-muted-foreground">
-                  All data points exceeding the deviation threshold
-                </p>
+            <div className="mb-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium">Detected Outliers</h3>
+                  <p className="text-sm text-muted-foreground">
+                    All data points exceeding the deviation threshold
+                  </p>
+                </div>
               </div>
-              <Input
-                placeholder="Filter by variable..."
-                value={variableFilter}
-                onChange={(e) => setVariableFilter(e.target.value)}
-                className="max-w-xs"
-              />
+              <div className="space-y-1">
+                <label className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                  <Filter className="h-3.5 w-3.5" />
+                  Filter Variables (Regex)
+                </label>
+                <Input
+                  placeholder="e.g., ^seas_|^media_ to filter variables starting with seas_ or media_"
+                  value={variableFilter}
+                  onChange={(e) => setVariableFilter(e.target.value)}
+                  className={regexError ? "border-destructive" : ""}
+                />
+                {regexError && (
+                  <p className="text-xs text-destructive">{regexError}</p>
+                )}
+                {!regexError && variableFilter && (
+                  <p className="text-xs text-muted-foreground">
+                    {filteredOutliers.length} outlier(s) match the filter
+                    {outlierAnalysis.length > 0 && ` (${outlierAnalysis.length - filteredOutliers.length} filtered out)`}
+                  </p>
+                )}
+              </div>
             </div>
 
             {filteredOutliers.length > 0 ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useDataStore } from "@/lib/store/index";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { BarChart3, AlertCircle, Plus, Trash2, Loader2 } from "lucide-react";
+import { BarChart3, AlertCircle, Plus, Trash2, Loader2, Download, Image as ImageIcon, Copy } from "lucide-react";
 import { pythonClient } from "@/lib/api/python-client";
+import * as XLSX from "xlsx";
+import html2canvas from "html2canvas";
 
 interface TransformationStep {
   type: string;
@@ -43,6 +45,7 @@ export function ChartingToolTab() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
 
   // Get data filtered by date range from store
   const data = getFilteredData();
@@ -177,6 +180,71 @@ export function ChartingToolTab() {
       handleGenerateChart();
     }
   }, [handleGenerateChart, isLoading, variable1Config.variable, data.length]);
+
+  // Export to Excel
+  const handleExportExcel = useCallback(() => {
+    if (chartData.length === 0) return;
+
+    const worksheet = XLSX.utils.json_to_sheet(chartData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Chart Data");
+
+    const fileName = `chart_data_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  }, [chartData]);
+
+  // Export to PNG
+  const handleExportPNG = useCallback(async () => {
+    if (!chartRef.current || chartData.length === 0) return;
+
+    try {
+      const canvas = await html2canvas(chartRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2, // Higher quality
+      });
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `chart_${new Date().toISOString().split('T')[0]}.png`;
+          link.click();
+          URL.revokeObjectURL(url);
+        }
+      });
+    } catch (error) {
+      console.error('Failed to export PNG:', error);
+      setError('Failed to export chart as PNG');
+    }
+  }, [chartData]);
+
+  // Copy to Clipboard
+  const handleCopyToClipboard = useCallback(async () => {
+    if (!chartRef.current || chartData.length === 0) return;
+
+    try {
+      const canvas = await html2canvas(chartRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+      });
+
+      canvas.toBlob(async (blob) => {
+        if (blob) {
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              'image/png': blob
+            })
+          ]);
+          // You could add a toast notification here
+          console.log('Chart copied to clipboard!');
+        }
+      });
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      setError('Failed to copy chart to clipboard');
+    }
+  }, [chartData]);
 
   // Compute chart keys for display (must match keys used in handleGenerateChart)
   const chartKeys = useMemo(() => {
@@ -345,8 +413,39 @@ export function ChartingToolTab() {
 
           {/* Chart */}
           <div className="border rounded-lg p-6 bg-card">
+            {chartData.length > 0 && (
+              <div className="flex items-center justify-end gap-2 mb-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportExcel}
+                  title="Export chart data to Excel"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Excel
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportPNG}
+                  title="Export chart as PNG image"
+                >
+                  <ImageIcon className="mr-2 h-4 w-4" />
+                  Export PNG
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyToClipboard}
+                  title="Copy chart to clipboard"
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy to Clipboard
+                </Button>
+              </div>
+            )}
             {chartData.length > 0 ? (
-              <div className="h-[450px]">
+              <div ref={chartRef} className="h-[450px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
                     data={chartData}
