@@ -75,7 +75,12 @@
       "Bash(git push:*)",
       "Bash(gh release create:*)",
       "Bash(npx dotenv -e .env.local -- cmd /c \"echo %GH_TOKEN%\")",
-      "Bash(npm run electron:publish:win:*)"
+      "Bash(npm run electron:publish:win:*)",
+      "Bash(gh release list:*)",
+      "Bash(awk:*)",
+      "Bash(start /B backenddistmodelling-mate-backendmodelling-mate-backend.exe)",
+      "Bash(modelling-mate-backend.exe:*)",
+      "Bash(del nul)"
     ],
     "deny": [],
     "ask": []
