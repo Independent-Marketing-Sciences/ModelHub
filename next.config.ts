@@ -30,7 +30,18 @@ const nextConfig: NextConfig = {
       symlinks: false,
     };
 
+    // Disable CSS optimization that creates symlinks
+    config.optimization = {
+      ...config.optimization,
+      splitChunks: false,
+    };
+
     return config;
+  },
+
+  // Disable static optimization
+  generateBuildId: async () => {
+    return 'build-' + Date.now();
   },
 };
 

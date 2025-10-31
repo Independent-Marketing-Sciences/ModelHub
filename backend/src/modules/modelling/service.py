@@ -464,8 +464,24 @@ def run_modelling_regression(request: RegressionRequest) -> Dict[str, Any]:
         'optimization_success': model_results['optimization_success']
     }
 
+    # Debug logging
+    print(f"[DEBUG] Residuals length: {len(model_results['residuals'])}")
+    print(f"[DEBUG] Fitted values length: {len(model_results['fitted_values'])}")
+    print(f"[DEBUG] Transformed data shape: {transformed_df.shape}")
+    print(f"[DEBUG] Transformed data columns: {transformed_df.columns.tolist()}")
+    print(f"[DEBUG] First few residuals: {model_results['residuals'][:5].tolist()}")
+    print(f"[DEBUG] First few fitted values: {model_results['fitted_values'][:5].tolist()}")
+
     # Sanitize all values to ensure JSON compatibility
-    return sanitize_dict(result)
+    sanitized = sanitize_dict(result)
+
+    print(f"[DEBUG] After sanitization - residuals length: {len(sanitized['residuals'])}")
+    print(f"[DEBUG] After sanitization - fitted_values length: {len(sanitized['fitted_values'])}")
+    print(f"[DEBUG] After sanitization - transformed_data keys: {list(sanitized['transformed_data'].keys())}")
+    for key in sanitized['transformed_data']:
+        print(f"[DEBUG]   {key}: length={len(sanitized['transformed_data'][key])}")
+
+    return sanitized
 
 
 def transform_single_variable(

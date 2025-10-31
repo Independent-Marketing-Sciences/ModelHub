@@ -11,11 +11,10 @@ import { CorrelationTab } from "@/features/correlation/components/CorrelationTab
 import { ProphetSeasonalityTab } from "@/features/prophet/components/ProphetSeasonalityTab";
 import { FeatureExtractionTab } from "@/features/feature-extraction/components/FeatureExtractionTab";
 import { OutlierDetectionTab } from "@/features/outlier-detection/components/OutlierDetectionTab";
-import { ModellingTab } from "@/features/modelling/components/ModellingTab";
 import { DateRangeSelector } from "@/components/data/DateRangeSelector";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ThemeLogo } from "@/components/ThemeLogo";
-import { ArrowLeft, Database, ChevronLeft, ChevronRight, Settings, TrendingUp } from "lucide-react";
+import { ArrowLeft, Database, ChevronLeft, ChevronRight, Settings } from "lucide-react";
 import { useTheme } from "next-themes";
 
 interface MainDashboardProps {
@@ -25,7 +24,6 @@ interface MainDashboardProps {
 export function MainDashboard({ onBackToHome }: MainDashboardProps) {
   const { data, setData, setColumns, setError, setIsLoading } = useDataStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedSidebarTab, setSelectedSidebarTab] = useState("modelling-mate");
   const { resolvedTheme } = useTheme();
 
   const handleNewDataset = async () => {
@@ -159,32 +157,6 @@ export function MainDashboard({ onBackToHome }: MainDashboardProps) {
                   <DateRangeSelector />
                 </div>
 
-                {/* Navigation Tabs */}
-                <div className="p-4 border-b">
-                  <h3 className="text-xs font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
-                    Navigation
-                  </h3>
-                  <div className="space-y-2">
-                    <Button
-                      variant={selectedSidebarTab === "modelling-mate" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedSidebarTab("modelling-mate")}
-                      className="w-full justify-start"
-                    >
-                      <Database className="mr-2 h-4 w-4" />
-                      Modelling Mate
-                    </Button>
-                    <Button
-                      variant={selectedSidebarTab === "modelling" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedSidebarTab("modelling")}
-                      className="w-full justify-start"
-                    >
-                      <TrendingUp className="mr-2 h-4 w-4" />
-                      Modelling
-                    </Button>
-                  </div>
-                </div>
 
                 {/* Spacer to push bottom content down */}
                 <div className="flex-1"></div>
@@ -226,58 +198,52 @@ export function MainDashboard({ onBackToHome }: MainDashboardProps) {
       {/* Main Content */}
       <div className={`flex-1 transition-all duration-150 ease-in-out ${sidebarOpen ? "ml-80" : "ml-16"}`}>
         <div className="w-full px-8 py-6">
-          {selectedSidebarTab === "modelling-mate" && (
-            <Tabs defaultValue="data" className="space-y-6">
-              <TabsList>
-                <TabsTrigger value="data">
-                  Data View
-                </TabsTrigger>
-                <TabsTrigger value="charting">
-                  Charting
-                </TabsTrigger>
-                <TabsTrigger value="correlation">
-                  Correlation
-                </TabsTrigger>
-                <TabsTrigger value="outliers">
-                  Outliers
-                </TabsTrigger>
-                <TabsTrigger value="feature-extraction">
-                  Feature Extraction
-                </TabsTrigger>
-                <TabsTrigger value="prophet">
-                  Prophet
-                </TabsTrigger>
-              </TabsList>
+          <Tabs defaultValue="data" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="data">
+                Data View
+              </TabsTrigger>
+              <TabsTrigger value="charting">
+                Charting
+              </TabsTrigger>
+              <TabsTrigger value="correlation">
+                Correlation
+              </TabsTrigger>
+              <TabsTrigger value="outliers">
+                Outliers
+              </TabsTrigger>
+              <TabsTrigger value="feature-extraction">
+                Feature Extraction
+              </TabsTrigger>
+              <TabsTrigger value="prophet">
+                Prophet
+              </TabsTrigger>
+            </TabsList>
 
-              <TabsContent value="data" className="space-y-4 mt-0">
-                <DataViewTab />
-              </TabsContent>
+            <TabsContent value="data" className="space-y-4 mt-0">
+              <DataViewTab />
+            </TabsContent>
 
-              <TabsContent value="charting" className="space-y-4 mt-0">
-                <ChartingToolTab />
-              </TabsContent>
+            <TabsContent value="charting" className="space-y-4 mt-0">
+              <ChartingToolTab />
+            </TabsContent>
 
-              <TabsContent value="correlation" className="space-y-4 mt-0">
-                <CorrelationTab />
-              </TabsContent>
+            <TabsContent value="correlation" className="space-y-4 mt-0">
+              <CorrelationTab />
+            </TabsContent>
 
-              <TabsContent value="outliers" className="space-y-4 mt-0">
-                <OutlierDetectionTab />
-              </TabsContent>
+            <TabsContent value="outliers" className="space-y-4 mt-0">
+              <OutlierDetectionTab />
+            </TabsContent>
 
-              <TabsContent value="feature-extraction" className="space-y-4 mt-0">
-                <FeatureExtractionTab />
-              </TabsContent>
+            <TabsContent value="feature-extraction" className="space-y-4 mt-0">
+              <FeatureExtractionTab />
+            </TabsContent>
 
-              <TabsContent value="prophet" className="space-y-4 mt-0">
-                <ProphetSeasonalityTab />
-              </TabsContent>
-            </Tabs>
-          )}
-
-          {selectedSidebarTab === "modelling" && (
-            <ModellingTab />
-          )}
+            <TabsContent value="prophet" className="space-y-4 mt-0">
+              <ProphetSeasonalityTab />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
