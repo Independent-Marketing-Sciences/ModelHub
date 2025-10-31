@@ -16,7 +16,7 @@ import dayjs, { Dayjs } from 'dayjs';
 type SortOrder = 'desc' | 'asc' | 'abs-desc' | 'abs-asc';
 
 export function CorrelationTab() {
-  const { columns, data: allData, dateColumn } = useDataStore();
+  const { columns, data: allData, dateColumn, setDateColumn } = useDataStore();
   const [selectedVariable, setSelectedVariable] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [correlationResults, setCorrelationResults] = useState<CorrelationResult[]>([]);
@@ -34,30 +34,47 @@ export function CorrelationTab() {
   const [period2Start, setPeriod2Start] = useState<Dayjs | null>(null);
   const [period2End, setPeriod2End] = useState<Dayjs | null>(null);
 
+  // Auto-detect date column if not set
+  const effectiveDateColumn = useMemo(() => {
+    if (dateColumn) return dateColumn;
+
+    // Try to auto-detect from standard date column names
+    const dateColumnNames = ['date', 'Date', 'obs', 'OBS'];
+    const found = columns.find(col => dateColumnNames.includes(col));
+
+    if (found && !dateColumn) {
+      // Update the store with the detected date column
+      setDateColumn(found);
+      return found;
+    }
+
+    return dateColumn;
+  }, [columns, dateColumn, setDateColumn]);
+
   // Get available dates for date pickers
   const availableDates = useMemo(() => {
-    if (!allData.length || !dateColumn) return [];
+    if (!allData.length || !effectiveDateColumn) return [];
 
     const dates = allData
-      .map((row) => row[dateColumn])
+      .map((row) => row[effectiveDateColumn])
       .filter((date) => date != null && date !== "")
       .map((date) => String(date));
 
     return Array.from(new Set(dates)).sort();
-  }, [allData, dateColumn]);
+  }, [allData, effectiveDateColumn]);
 
   const minDate = availableDates.length > 0 ? dayjs(availableDates[0]) : dayjs('2000-01-01');
   const maxDate = availableDates.length > 0 ? dayjs(availableDates[availableDates.length - 1]) : dayjs();
 
   // Filter data by date range
   const getDataForPeriod = (start: Dayjs | null, end: Dayjs | null) => {
-    if (!start || !end || !dateColumn) return allData;
+    if (!start || !end || !effectiveDateColumn) return allData;
 
     const startStr = start.format('YYYY-MM-DD');
     const endStr = end.format('YYYY-MM-DD');
 
     return allData.filter(row => {
-      const dateValue = row[dateColumn];
+      const dateValue = row[effectiveDateColumn];
       if (!dateValue) return true;
       const dateStr = String(dateValue);
       return dateStr >= startStr && dateStr <= endStr;
@@ -310,10 +327,24 @@ export function CorrelationTab() {
               </div>
 
               {/* Period Date Selectors */}
-              {compareMode && availableDates.length > 0 && (
-                <div className="grid md:grid-cols-2 gap-4 p-4 border rounded-lg bg-card">
-                  {/* Period 1 */}
-                  <div className="space-y-3">
+              {compareMode && (
+                <>
+                  {!effectiveDateColumn || availableDates.length === 0 ? (
+                    <div className="p-4 border rounded-lg bg-card">
+                      <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-3 flex items-start gap-2">
+                        <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+                        <div className="flex-1 text-sm text-amber-800 dark:text-amber-300">
+                          {!effectiveDateColumn
+                            ? "No date column found in the dataset. Please ensure your data contains a column named 'date', 'Date', 'obs', or 'OBS'."
+                            : "No dates found in the dataset. Please ensure your data contains valid date values."
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid md:grid-cols-2 gap-4 p-4 border rounded-lg bg-card">
+                      {/* Period 1 */}
+                      <div className="space-y-3">
                     <h3 className="text-sm font-medium flex items-center gap-2">
                       <span className="inline-block w-3 h-3 rounded-full bg-blue-500"></span>
                       Period 1
@@ -412,6 +443,8 @@ export function CorrelationTab() {
                     />
                   </div>
                 </div>
+                  )}
+                </>
               )}
 
               {/* Variable Selection */}

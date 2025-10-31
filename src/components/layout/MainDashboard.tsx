@@ -11,10 +11,11 @@ import { CorrelationTab } from "@/features/correlation/components/CorrelationTab
 import { ProphetSeasonalityTab } from "@/features/prophet/components/ProphetSeasonalityTab";
 import { FeatureExtractionTab } from "@/features/feature-extraction/components/FeatureExtractionTab";
 import { OutlierDetectionTab } from "@/features/outlier-detection/components/OutlierDetectionTab";
+import { ModellingTab } from "@/features/modelling/components/ModellingTab";
 import { DateRangeSelector } from "@/components/data/DateRangeSelector";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ThemeLogo } from "@/components/ThemeLogo";
-import { ArrowLeft, Database, ChevronLeft, ChevronRight, Settings } from "lucide-react";
+import { ArrowLeft, Database, ChevronLeft, ChevronRight, Settings, TrendingUp } from "lucide-react";
 import { useTheme } from "next-themes";
 
 interface MainDashboardProps {
@@ -163,15 +164,26 @@ export function MainDashboard({ onBackToHome }: MainDashboardProps) {
                   <h3 className="text-xs font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
                     Navigation
                   </h3>
-                  <Button
-                    variant={selectedSidebarTab === "modelling-mate" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedSidebarTab("modelling-mate")}
-                    className="w-full justify-start"
-                  >
-                    <Database className="mr-2 h-4 w-4" />
-                    Modelling Mate
-                  </Button>
+                  <div className="space-y-2">
+                    <Button
+                      variant={selectedSidebarTab === "modelling-mate" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedSidebarTab("modelling-mate")}
+                      className="w-full justify-start"
+                    >
+                      <Database className="mr-2 h-4 w-4" />
+                      Modelling Mate
+                    </Button>
+                    <Button
+                      variant={selectedSidebarTab === "modelling" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedSidebarTab("modelling")}
+                      className="w-full justify-start"
+                    >
+                      <TrendingUp className="mr-2 h-4 w-4" />
+                      Modelling
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Spacer to push bottom content down */}
@@ -261,6 +273,10 @@ export function MainDashboard({ onBackToHome }: MainDashboardProps) {
                 <ProphetSeasonalityTab />
               </TabsContent>
             </Tabs>
+          )}
+
+          {selectedSidebarTab === "modelling" && (
+            <ModellingTab />
           )}
         </div>
       </div>

@@ -1,47 +1,55 @@
 ; Custom NSIS installer script for Modelling Mate
 ; This adds auto-uninstall of previous versions and Python dependency installation
 
-; Auto-uninstall previous version before installing
+; Auto-uninstall previous version before installing (silent, no user interaction)
 !macro customInit
   ; Check if app is already installed
   ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\{com.imsciences.modellingmate}" "UninstallString"
   ${If} $0 != ""
-    ; Previous version found - show message and uninstall
-    MessageBox MB_OKCANCEL|MB_ICONINFORMATION \
-      "Modelling Mate is already installed. The previous version will be uninstalled automatically before installing the new version.$\r$\n$\r$\nClick OK to continue or Cancel to abort." \
-      IDOK uninst
-      Abort
+    ; Previous version found - automatically uninstall without prompting
+    DetailPrint "Detected previous installation. Automatically uninstalling..."
 
-    uninst:
-      ; Close the app if it's running
-      DetailPrint "Checking for running Modelling Mate processes..."
+    ; Close the app if it's running
+    DetailPrint "Checking for running Modelling Mate processes..."
 
-      ; Try to close gracefully first
-      ExecWait 'taskkill /IM "Modelling Mate.exe" /T' $1
-      ExecWait 'taskkill /IM "modelling-mate-backend.exe" /T' $1
-      ExecWait 'taskkill /IM "electron.exe" /T' $1
+    ; Try to close gracefully first (suppress output)
+    ExecWait 'taskkill /IM "Modelling Mate.exe" /T' $1
+    ExecWait 'taskkill /IM "modelling-mate-backend.exe" /T' $1
+    ExecWait 'taskkill /IM "electron.exe" /T' $1
 
-      ; Wait a moment for processes to close
-      Sleep 2000
+    ; Wait a moment for processes to close
+    Sleep 2000
 
-      ; Force kill if still running
-      ExecWait 'taskkill /F /IM "Modelling Mate.exe"' $1
-      ExecWait 'taskkill /F /IM "modelling-mate-backend.exe"' $1
+    ; Force kill if still running (suppress output)
+    ExecWait 'taskkill /F /IM "Modelling Mate.exe"' $1
+    ExecWait 'taskkill /F /IM "modelling-mate-backend.exe"' $1
 
-      ; Wait for files to be released
-      Sleep 1000
+    ; Wait for files to be released
+    Sleep 1000
 
-      ; Run the uninstaller
-      DetailPrint "Uninstalling previous version..."
-      ExecWait '$0 /S _?=$INSTDIR' $1
+    ; Clear application logs before uninstalling
+    DetailPrint "Clearing application logs..."
 
-      ; Wait for uninstall to complete
-      Sleep 2000
+    ; Get the user's AppData Local directory where Electron stores userData
+    ; For Modelling Mate, the path is: %LOCALAPPDATA%\modelling-mate\modelling-mate.log
+    ReadEnvStr $2 LOCALAPPDATA
+    ${If} $2 != ""
+      ; Delete the log file if it exists
+      Delete "$2\modelling-mate\modelling-mate.log"
+      DetailPrint "Log file cleared: $2\modelling-mate\modelling-mate.log"
+    ${EndIf}
 
-      ; Clean up any remaining files
-      RMDir /r "$INSTDIR"
+    ; Run the uninstaller silently
+    DetailPrint "Uninstalling previous version..."
+    ExecWait '$0 /S _?=$INSTDIR' $1
 
-      DetailPrint "Previous version uninstalled successfully"
+    ; Wait for uninstall to complete
+    Sleep 2000
+
+    ; Clean up any remaining files
+    RMDir /r "$INSTDIR"
+
+    DetailPrint "Previous version uninstalled successfully. Continuing with installation..."
   ${EndIf}
 !macroend
 

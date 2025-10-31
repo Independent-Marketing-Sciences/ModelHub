@@ -80,7 +80,11 @@
       "Bash(awk:*)",
       "Bash(start /B backenddistmodelling-mate-backendmodelling-mate-backend.exe)",
       "Bash(modelling-mate-backend.exe:*)",
-      "Bash(del nul)"
+      "Bash(del nul)",
+      "Bash(if exist distmodelling-mate-backend rmdir /s /q distmodelling-mate-backend)",
+      "Bash(if exist build rmdir /s /q build)",
+      "Bash(start /B dist/modelling-mate-backend/modelling-mate-backend.exe)",
+      "Bash(start \"\" \"dist/win-unpacked/Modelling Mate.exe\")"
     ],
     "deny": [],
     "ask": []

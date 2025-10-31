@@ -85,6 +85,24 @@ export function DateRangeSelector() {
     return uniqueDates;
   }, [data, detectedDateColumn]);
 
+  // Get dataset date range
+  const datasetDateRange = useMemo(() => {
+    if (availableDates.length === 0) return { min: null, max: null };
+    return {
+      min: dayjs(availableDates[0]),
+      max: dayjs(availableDates[availableDates.length - 1])
+    };
+  }, [availableDates]);
+
+  // Auto-populate dates when dataset loads and no dates are set
+  useEffect(() => {
+    if (datasetDateRange.min && datasetDateRange.max && !dateRangeStart && !dateRangeEnd) {
+      console.log('[DateRangeSelector] Auto-populating dates from dataset:', datasetDateRange.min.format('YYYY-MM-DD'), 'to', datasetDateRange.max.format('YYYY-MM-DD'));
+      setStartDate(datasetDateRange.min);
+      setEndDate(datasetDateRange.max);
+    }
+  }, [datasetDateRange.min, datasetDateRange.max, dateRangeStart, dateRangeEnd]);
+
   // Sync local state with store
   useEffect(() => {
     setStartDate(dateRangeStart ? dayjs(dateRangeStart) : null);

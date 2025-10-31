@@ -12,6 +12,7 @@ from modules.correlation import routes as correlation_routes
 from modules.regression import routes as regression_routes
 from modules.transformations import routes as transformation_routes
 from modules.feature_extraction import routes as feature_extraction_routes
+from modules.modelling import routes as modelling_routes
 
 # Try to import Prophet to check availability
 try:
@@ -37,6 +38,7 @@ app.include_router(correlation_routes.router, prefix="/api/correlation", tags=["
 app.include_router(regression_routes.router, prefix="/api/regression", tags=["Regression"])
 app.include_router(transformation_routes.router, prefix="/api/transform", tags=["Transformations"])
 app.include_router(feature_extraction_routes.router, prefix="/api/feature-extraction", tags=["Feature Extraction"])
+app.include_router(modelling_routes.router, prefix="/api/modelling", tags=["Modelling"])
 
 
 # ============================================================================
