@@ -3,6 +3,22 @@
  * Handles communication with Python backend for econometric modelling
  */
 
+// Helper to get the dynamic Python backend port from Electron
+async function getPythonBackendUrl(): Promise<string> {
+  // Check if we're in Electron environment
+  if (typeof window !== 'undefined' && (window as any).electron) {
+    try {
+      const port = await (window as any).electron.invoke('python:getPort');
+      return `http://localhost:${port}`;
+    } catch (error) {
+      console.warn('Failed to get Python port from Electron, using default:', error);
+    }
+  }
+
+  // Fallback to default
+  return 'http://localhost:8000';
+}
+
 const API_BASE_URL = "http://localhost:8000/api/modelling";
 
 // ============================================================================
@@ -94,9 +110,21 @@ export interface TransformationTypes {
 
 class ModellingClient {
   private baseUrl: string;
+  private dynamicUrl: Promise<string> | null = null;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
+  }
+
+  /**
+   * Get the current backend URL (checks for dynamic port)
+   */
+  private async getBaseUrl(): Promise<string> {
+    if (!this.dynamicUrl) {
+      this.dynamicUrl = getPythonBackendUrl();
+    }
+    const url = await this.dynamicUrl;
+    return `${url}/api/modelling`;
   }
 
   /**
@@ -104,7 +132,8 @@ class ModellingClient {
    */
   async isAvailable(): Promise<boolean> {
     try {
-      const response = await fetch("http://localhost:8000/health");
+      const url = await getPythonBackendUrl();
+      const response = await fetch(`${url}/health`);
       return response.ok;
     } catch {
       return false;
@@ -117,7 +146,8 @@ class ModellingClient {
   async runRegression(request: RegressionRequest): Promise<RegressionResult> {
     console.log('[ModellingClient] Sending regression request:', request);
 
-    const response = await fetch(`${this.baseUrl}/regression`, {
+    const baseUrl = await this.getBaseUrl();
+    const response = await fetch(`${baseUrl}/regression`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -148,7 +178,8 @@ class ModellingClient {
   async previewTransformation(
     request: TransformPreviewRequest
   ): Promise<TransformPreviewResult> {
-    const response = await fetch(`${this.baseUrl}/transform-preview`, {
+    const baseUrl = await this.getBaseUrl();
+    const response = await fetch(`${baseUrl}/transform-preview`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -168,7 +199,8 @@ class ModellingClient {
    * Get available transformation types
    */
   async getTransformationTypes(): Promise<TransformationTypes> {
-    const response = await fetch(`${this.baseUrl}/transformation-types`);
+    const baseUrl = await this.getBaseUrl();
+    const response = await fetch(`${baseUrl}/transformation-types`);
 
     if (!response.ok) {
       throw new Error("Failed to fetch transformation types");

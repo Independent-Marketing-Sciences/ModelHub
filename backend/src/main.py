@@ -77,5 +77,28 @@ def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    # Run on port 8000 by default
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
+    import socket
+    import sys
+
+    def find_free_port(start_port=8000, max_attempts=10):
+        """Find a free port starting from start_port"""
+        for port in range(start_port, start_port + max_attempts):
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.bind(('127.0.0.1', port))
+                    return port
+            except OSError:
+                continue
+        raise RuntimeError(f"Could not find a free port between {start_port} and {start_port + max_attempts}")
+
+    # Find a free port
+    port = find_free_port()
+
+    # Write port to a file so Electron can read it
+    import os
+    port_file = os.path.join(os.path.dirname(__file__), 'backend_port.txt')
+    with open(port_file, 'w') as f:
+        f.write(str(port))
+
+    print(f"Starting server on port {port}", file=sys.stderr, flush=True)
+    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")

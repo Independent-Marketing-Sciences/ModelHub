@@ -3,6 +3,22 @@
  * Communicates with FastAPI backend for Prophet and advanced stats
  */
 
+// Helper to get the dynamic Python backend port from Electron
+async function getPythonBackendUrl(): Promise<string> {
+  // Check if we're in Electron environment
+  if (typeof window !== 'undefined' && (window as any).electron) {
+    try {
+      const port = await (window as any).electron.invoke('python:getPort');
+      return `http://localhost:${port}`;
+    } catch (error) {
+      console.warn('Failed to get Python port from Electron, using default:', error);
+    }
+  }
+
+  // Fallback to environment variable or default
+  return process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000';
+}
+
 const PYTHON_BACKEND_URL = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000';
 
 export interface ProphetForecastRequest {
@@ -109,9 +125,20 @@ export interface VariableTransformResponse {
 
 class PythonBackendClient {
   private baseUrl: string;
+  private dynamicUrl: Promise<string> | null = null;
 
   constructor(baseUrl: string = PYTHON_BACKEND_URL) {
     this.baseUrl = baseUrl;
+  }
+
+  /**
+   * Get the current backend URL (checks for dynamic port)
+   */
+  private async getBaseUrl(): Promise<string> {
+    if (!this.dynamicUrl) {
+      this.dynamicUrl = getPythonBackendUrl();
+    }
+    return this.dynamicUrl;
   }
 
   /**
@@ -119,7 +146,8 @@ class PythonBackendClient {
    */
   async isAvailable(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseUrl}/health`, {
+      const baseUrl = await this.getBaseUrl();
+      const response = await fetch(`${baseUrl}/health`, {
         method: 'GET',
         signal: AbortSignal.timeout(2000), // 2 second timeout
       });
@@ -135,7 +163,8 @@ class PythonBackendClient {
    */
   async checkAvailability(): Promise<{ available: boolean; error?: string; details?: any }> {
     try {
-      const response = await fetch(`${this.baseUrl}/health`, {
+      const baseUrl = await this.getBaseUrl();
+      const response = await fetch(`${baseUrl}/health`, {
         method: 'GET',
         signal: AbortSignal.timeout(3000), // 3 second timeout
       });
@@ -174,7 +203,8 @@ class PythonBackendClient {
    * Get backend health status
    */
   async getHealth(): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/health`);
+    const baseUrl = await this.getBaseUrl();
+    const response = await fetch(`${baseUrl}/health`);
     if (!response.ok) {
       throw new Error(`Health check failed: ${response.statusText}`);
     }
@@ -188,7 +218,8 @@ class PythonBackendClient {
     request: ProphetForecastRequest
   ): Promise<ProphetForecastResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/prophet/forecast`, {
+      const baseUrl = await this.getBaseUrl();
+      const response = await fetch(`${baseUrl}/api/prophet/forecast`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -213,7 +244,8 @@ class PythonBackendClient {
    */
   async stepwiseRegression(request: StepwiseRequest): Promise<StepwiseResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/regression/stepwise`, {
+      const baseUrl = await this.getBaseUrl();
+      const response = await fetch(`${baseUrl}/api/regression/stepwise`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -238,7 +270,8 @@ class PythonBackendClient {
    */
   async correlationMatrix(request: CorrelationRequest): Promise<CorrelationResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/correlation/matrix`, {
+      const baseUrl = await this.getBaseUrl();
+      const response = await fetch(`${baseUrl}/api/correlation/matrix`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -263,7 +296,8 @@ class PythonBackendClient {
    */
   async correlationRanked(request: CorrelationRankedRequest): Promise<CorrelationRankedResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/correlation/ranked`, {
+      const baseUrl = await this.getBaseUrl();
+      const response = await fetch(`${baseUrl}/api/correlation/ranked`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -288,7 +322,8 @@ class PythonBackendClient {
    */
   async transformVariable(request: VariableTransformRequest): Promise<VariableTransformResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/transform/variable`, {
+      const baseUrl = await this.getBaseUrl();
+      const response = await fetch(`${baseUrl}/api/transform/variable`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -313,7 +348,8 @@ class PythonBackendClient {
    */
   async post(endpoint: string, data: any): Promise<any> {
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const baseUrl = await this.getBaseUrl();
+      const response = await fetch(`${baseUrl}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

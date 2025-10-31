@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useDataStore } from "@/lib/store/index";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,21 +35,19 @@ export function CorrelationTab() {
   const [period2End, setPeriod2End] = useState<Dayjs | null>(null);
 
   // Auto-detect date column if not set
-  const effectiveDateColumn = useMemo(() => {
-    if (dateColumn) return dateColumn;
+  useEffect(() => {
+    if (!dateColumn && columns.length > 0) {
+      // Try to auto-detect from standard date column names
+      const dateColumnNames = ['date', 'Date', 'obs', 'OBS'];
+      const found = columns.find(col => dateColumnNames.includes(col));
 
-    // Try to auto-detect from standard date column names
-    const dateColumnNames = ['date', 'Date', 'obs', 'OBS'];
-    const found = columns.find(col => dateColumnNames.includes(col));
-
-    if (found && !dateColumn) {
-      // Update the store with the detected date column
-      setDateColumn(found);
-      return found;
+      if (found) {
+        setDateColumn(found);
+      }
     }
-
-    return dateColumn;
   }, [columns, dateColumn, setDateColumn]);
+
+  const effectiveDateColumn = dateColumn;
 
   // Get available dates for date pickers
   const availableDates = useMemo(() => {

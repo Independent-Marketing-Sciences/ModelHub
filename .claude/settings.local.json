@@ -84,7 +84,11 @@
       "Bash(if exist distmodelling-mate-backend rmdir /s /q distmodelling-mate-backend)",
       "Bash(if exist build rmdir /s /q build)",
       "Bash(start /B dist/modelling-mate-backend/modelling-mate-backend.exe)",
-      "Bash(start \"\" \"dist/win-unpacked/Modelling Mate.exe\")"
+      "Bash(start \"\" \"dist/win-unpacked/Modelling Mate.exe\")",
+      "Bash(nul)",
+      "Bash(del openapi_temp.json)",
+      "Bash(backend.log)",
+      "Bash(timeout /t 3)"
     ],
     "deny": [],
     "ask": []

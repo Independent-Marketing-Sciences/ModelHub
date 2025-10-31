@@ -12,7 +12,7 @@ let pythonBackendStartAttempts = 0;
 const MAX_START_ATTEMPTS = 3;
 const isDev = process.env.NODE_ENV === 'development';
 const port = process.env.PORT || 3000;
-const pythonPort = 8000;
+let pythonPort = null; // Will be dynamically assigned
 
 // Setup logging to file for debugging production issues
 const logFilePath = path.join(app.getPath('userData'), 'modelling-mate.log');
@@ -258,33 +258,6 @@ function startPythonBackend() {
     console.log('Starting Python backend...');
     console.log('Running pre-flight checks...');
 
-    // Check for port availability first (applies to both bundled and system Python)
-    const portCheck = await checkPortAvailable(pythonPort);
-    if (!portCheck.available) {
-      console.error('Port not available:', portCheck.error);
-      pythonBackendStatus = 'failed';
-      pythonBackendError = portCheck.error;
-
-      if (mainWindow) {
-        dialog.showMessageBox(mainWindow, {
-          type: 'warning',
-          title: 'Port Already In Use',
-          message: `Port ${pythonPort} is already in use`,
-          detail:
-            'Another application is using the port needed by the Python backend.\n\n' +
-            'This could be:\n' +
-            '- Another instance of this application\n' +
-            '- A development server running on the same port\n' +
-            '- Another application using port 8000\n\n' +
-            'Please close the other application and restart Modelling Mate.',
-          buttons: ['OK']
-        });
-      }
-
-      resolve();
-      return;
-    }
-
     // Try to find bundled Python backend first (PREFERRED - no Python install needed!)
     let bundledBackendPath;
     if (isDev) {
@@ -436,13 +409,20 @@ function startPythonBackend() {
       backendErrors += error;
       console.error(`Python Backend Error: ${error}`);
 
+      // Check for port assignment message
+      const portMatch = error.match(/Starting server on port (\d+)/);
+      if (portMatch) {
+        pythonPort = parseInt(portMatch[1]);
+        console.log(`Python backend assigned to port ${pythonPort}`);
+      }
+
       // Check for common errors
       if (error.includes('ModuleNotFoundError') || error.includes('No module named')) {
         console.error('Missing Python module detected');
         pythonBackendError = 'Missing required Python packages. Please run Install-Dependencies.bat';
       } else if (error.includes('Address already in use') || error.includes('EADDRINUSE')) {
-        console.error('Port already in use');
-        pythonBackendError = `Port ${pythonPort} is already in use`;
+        console.error('Port conflict detected - this should not happen with dynamic port allocation');
+        pythonBackendError = 'Unable to find available port';
       } else if (error.includes('prophet')) {
         console.error('Prophet-related error detected');
         pythonBackendError = 'Prophet library error. May need to reinstall dependencies.';
@@ -524,24 +504,41 @@ function startPythonBackend() {
     const checkBackend = setInterval(async () => {
       healthCheckAttempts++;
 
-      try {
-        const http = require('http');
-        http.get(`http://localhost:${pythonPort}/health`, (res) => {
-          if (res.statusCode === 200) {
-            console.log(`Python backend is ready! (took ${healthCheckAttempts} seconds)`);
-            pythonBackendStatus = 'running';
-            pythonBackendError = null;
-            clearInterval(checkBackend);
-            resolve();
+      // Try to read port from file if not yet assigned
+      if (!pythonPort) {
+        const portFile = path.join(pythonDir, 'backend_port.txt');
+        if (fs.existsSync(portFile)) {
+          try {
+            const portContent = fs.readFileSync(portFile, 'utf8').trim();
+            pythonPort = parseInt(portContent);
+            console.log(`Read Python backend port from file: ${pythonPort}`);
+          } catch (err) {
+            console.error('Error reading port file:', err);
           }
-        }).on('error', (err) => {
-          // Backend not ready yet, keep checking
-          if (healthCheckAttempts >= MAX_HEALTH_CHECKS) {
-            console.error('Health check failed:', err.message);
-          }
-        });
-      } catch (error) {
-        // Backend not ready yet
+        }
+      }
+
+      // Only check health if we have a port assigned
+      if (pythonPort) {
+        try {
+          const http = require('http');
+          http.get(`http://localhost:${pythonPort}/health`, (res) => {
+            if (res.statusCode === 200) {
+              console.log(`Python backend is ready on port ${pythonPort}! (took ${healthCheckAttempts} seconds)`);
+              pythonBackendStatus = 'running';
+              pythonBackendError = null;
+              clearInterval(checkBackend);
+              resolve();
+            }
+          }).on('error', (err) => {
+            // Backend not ready yet, keep checking
+            if (healthCheckAttempts >= MAX_HEALTH_CHECKS) {
+              console.error('Health check failed:', err.message);
+            }
+          });
+        } catch (error) {
+          // Backend not ready yet
+        }
       }
 
       // Check if we've exceeded max attempts
@@ -834,8 +831,12 @@ ipcMain.handle('python:getStatus', async () => {
     status: pythonBackendStatus,
     error: pythonBackendError,
     attempts: pythonBackendStartAttempts,
-    port: pythonPort
+    port: pythonPort || 8000 // Return default port if not yet assigned
   };
+});
+
+ipcMain.handle('python:getPort', async () => {
+  return pythonPort || 8000; // Return default port if not yet assigned
 });
 
 ipcMain.handle('python:restart', async () => {
