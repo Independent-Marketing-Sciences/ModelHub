@@ -10,7 +10,8 @@ let pythonBackendStatus = 'not_started'; // not_started, starting, running, fail
 let pythonBackendError = null;
 let pythonBackendStartAttempts = 0;
 const MAX_START_ATTEMPTS = 3;
-const isDev = process.env.NODE_ENV === 'development';
+// Development mode: check NODE_ENV or if app is not packaged
+const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 const port = process.env.PORT || 3000;
 let pythonPort = null; // Will be dynamically assigned
 
@@ -386,9 +387,23 @@ function startPythonBackend() {
     const spawnOptions = {
       cwd: workingDir,
       shell: process.platform === 'win32' ? 'cmd.exe' : true,
+      windowsVerbatimArguments: false, // Allow proper quoting on Windows
     };
 
-    pythonBackend = spawn(pythonExe, pythonArgs, spawnOptions);
+    // On Windows, if using bundled backend with spaces in path, wrap in quotes
+    let executableToRun = pythonExe;
+    let argsToRun = pythonArgs;
+
+    if (process.platform === 'win32' && useBundledBackend && pythonExe.includes(' ')) {
+      // Use cmd /c with quoted path for executables with spaces
+      executableToRun = 'cmd.exe';
+      argsToRun = ['/c', `"${pythonExe}"`];
+    } else if (process.platform === 'win32' && !useBundledBackend && pythonArgs.length > 0 && pythonArgs[0].includes(' ')) {
+      // System Python with script path containing spaces
+      argsToRun = [`"${pythonArgs[0]}"`];
+    }
+
+    pythonBackend = spawn(executableToRun, argsToRun, spawnOptions);
 
     let backendOutput = '';
     let backendErrors = '';

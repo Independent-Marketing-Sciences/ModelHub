@@ -97,8 +97,15 @@ if __name__ == "__main__":
     # Write port to a file so Electron can read it
     import os
     port_file = os.path.join(os.path.dirname(__file__), 'backend_port.txt')
-    with open(port_file, 'w') as f:
-        f.write(str(port))
+
+    # Ensure directory exists and is writable
+    try:
+        os.makedirs(os.path.dirname(port_file), exist_ok=True)
+        with open(port_file, 'w', encoding='utf-8') as f:
+            f.write(str(port))
+        print(f"Port file written to: {port_file}", file=sys.stderr, flush=True)
+    except Exception as e:
+        print(f"Warning: Could not write port file: {e}", file=sys.stderr, flush=True)
 
     print(f"Starting server on port {port}", file=sys.stderr, flush=True)
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
