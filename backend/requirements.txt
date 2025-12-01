@@ -9,12 +9,16 @@ pydantic>=2.0.0,<3.0.0  # Required for FastAPI 0.115.6 compatibility
 pandas==2.2.3
 numpy==2.2.2
 
+# Visualization
+plotly>=5.0.0
+
 # Time series forecasting
 prophet==1.1.7
 
 # Statistical analysis
 scipy==1.15.2
 scikit-learn==1.6.1
+statsmodels>=0.14.0
 
 # Machine learning
 xgboost==2.1.3
