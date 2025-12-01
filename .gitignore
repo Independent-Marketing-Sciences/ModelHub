@@ -67,6 +67,7 @@ Modelling_Mate_Installation/
 backend/build/
 backend/dist/
 backend/**/*.spec
+!backend/src/main.spec
 python-dist/
 
 # Temporary/legacy files
