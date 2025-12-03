@@ -65,6 +65,7 @@ Modelling_Mate_Installation/
 
 # Python backend build artifacts
 backend/build/
+backend/src/build/
 backend/dist/
 backend/**/*.spec
 !backend/src/main.spec
