@@ -97,10 +97,8 @@ statsmodels_path = site_packages / 'statsmodels'
 if statsmodels_path.exists():
     a.datas += Tree(str(statsmodels_path), prefix='statsmodels', excludes=['*.dll', '*.pyd', '*.so'])
 
-# Collect setuptools vendor files (includes jaraco.text Lorem ipsum.txt)
-setuptools_path = site_packages / 'setuptools'
-if setuptools_path.exists():
-    a.datas += Tree(str(setuptools_path), prefix='setuptools', excludes=['*.dll', '*.pyd', '*.so'])
+# Note: Removed setuptools Tree collection to avoid pkg_resources issues
+# PyInstaller's hooks should handle this automatically
 
 # XGBoost data files (Python code, but NOT the binaries - those are in binaries=[] above)
 xgboost_path = site_packages / 'xgboost'
