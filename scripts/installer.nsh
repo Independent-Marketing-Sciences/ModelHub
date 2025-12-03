@@ -1,55 +1,87 @@
 ; Custom NSIS installer script for Modelling Mate
-; This adds auto-uninstall of previous versions and Python dependency installation
+; This adds auto-uninstall of previous versions and shows progress
 
-; Auto-uninstall previous version before installing (silent, no user interaction)
+; Auto-uninstall previous version before installing (with progress feedback)
 !macro customInit
   ; Check if app is already installed
   ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\{com.imsciences.modellingmate}" "UninstallString"
   ${If} $0 != ""
-    ; Previous version found - automatically uninstall without prompting
-    DetailPrint "Detected previous installation. Automatically uninstalling..."
+    ; Previous version found - show message and uninstall
+    MessageBox MB_ICONINFORMATION "Updating Modelling Mate...$\r$\n$\r$\nThe installer will now:$\r$\n1. Close any running processes$\r$\n2. Remove the previous version$\r$\n3. Install the new version$\r$\n$\r$\nThis may take 30-60 seconds.$\r$\nPlease wait..." /SD IDOK
 
-    ; Close the app if it's running
-    DetailPrint "Checking for running Modelling Mate processes..."
+    DetailPrint "========================================="
+    DetailPrint "UPDATING MODELLING MATE"
+    DetailPrint "========================================="
+    DetailPrint ""
+    DetailPrint "[Step 1/4] Checking for running Modelling Mate processes..."
 
-    ; Try to close gracefully first (suppress output)
+    ; Try to close gracefully first
+    DetailPrint "  • Closing Modelling Mate application..."
     ExecWait 'taskkill /IM "Modelling Mate.exe" /T' $1
+    DetailPrint "  • Closing Python backend..."
     ExecWait 'taskkill /IM "modelling-mate-backend.exe" /T' $1
+    ExecWait 'taskkill /IM "backend.exe" /T' $1
+    ExecWait 'taskkill /IM "python.exe" /T' $1
+    DetailPrint "  • Closing Electron processes..."
     ExecWait 'taskkill /IM "electron.exe" /T' $1
 
     ; Wait a moment for processes to close
-    Sleep 2000
+    DetailPrint "  • Waiting for processes to terminate..."
+    Sleep 3000
 
-    ; Force kill if still running (suppress output)
+    ; Force kill if still running
+    DetailPrint "  • Ensuring all processes are closed..."
     ExecWait 'taskkill /F /IM "Modelling Mate.exe"' $1
     ExecWait 'taskkill /F /IM "modelling-mate-backend.exe"' $1
+    ExecWait 'taskkill /F /IM "backend.exe"' $1
+    ExecWait 'taskkill /F /IM "python.exe"' $1
 
-    ; Wait for files to be released
-    Sleep 1000
+    ; Wait longer for files to be released
+    DetailPrint "  • Waiting for Windows to release file locks..."
+    Sleep 3000
+    DetailPrint "  ✓ All processes closed successfully"
+    DetailPrint ""
 
     ; Clear application logs before uninstalling
-    DetailPrint "Clearing application logs..."
+    DetailPrint "[Step 2/4] Clearing application logs..."
 
     ; Get the user's AppData Local directory where Electron stores userData
-    ; For Modelling Mate, the path is: %LOCALAPPDATA%\modelling-mate\modelling-mate.log
     ReadEnvStr $2 LOCALAPPDATA
     ${If} $2 != ""
-      ; Delete the log file if it exists
       Delete "$2\modelling-mate\modelling-mate.log"
-      DetailPrint "Log file cleared: $2\modelling-mate\modelling-mate.log"
+      DetailPrint "  • Cleared application logs"
     ${EndIf}
+    DetailPrint "  ✓ Logs cleared successfully"
+    DetailPrint ""
 
     ; Run the uninstaller silently
-    DetailPrint "Uninstalling previous version..."
+    DetailPrint "[Step 3/4] Uninstalling previous version..."
+    DetailPrint "  • Running uninstaller..."
     ExecWait '$0 /S _?=$INSTDIR' $1
 
+    ; Check if uninstall succeeded
+    ${If} $1 != 0
+      DetailPrint "  ⚠ Warning: Uninstaller returned code $1"
+      DetailPrint "  • Attempting manual cleanup..."
+    ${Else}
+      DetailPrint "  ✓ Uninstaller completed successfully"
+    ${EndIf}
+
     ; Wait for uninstall to complete
-    Sleep 2000
+    DetailPrint "  • Waiting for cleanup to complete..."
+    Sleep 3000
 
     ; Clean up any remaining files
+    DetailPrint "  • Removing old installation files..."
     RMDir /r "$INSTDIR"
+    DetailPrint "  • Cleaning temporary files..."
+    Delete "$TEMP\modelling-mate-*"
+    DetailPrint "  ✓ Cleanup complete"
+    DetailPrint ""
 
-    DetailPrint "Previous version uninstalled successfully. Continuing with installation..."
+    DetailPrint "[Step 4/4] Installing new version..."
+    DetailPrint "  • This will take 20-30 seconds..."
+    DetailPrint ""
   ${EndIf}
 !macroend
 
